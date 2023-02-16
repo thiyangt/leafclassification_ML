@@ -1,0 +1,401 @@
+---
+title: Statistical Machine Learning for Medicinal Plant leaves Classification
+authors:
+  - name: Jayani P.G. Lakshika
+    thanks: Use footnote for providing further information about author (webpage, alternative address)---*not* for acknowledging funding agencies. Optional.
+    department: Department of Statistics
+    affiliation: University of Sri Jayewardenepura
+    location: Nugegoda, Sri Lanka
+    email: jayanilakshika76@gmail.com
+  - name: Thiyanga S. Talagala
+    department: Department of Statistics
+    affiliation: University of Sri Jayewardenepura
+    location: Nugegoda, Sri Lanka
+    email: ttalagala@sjp.ac.lk
+abstract: |
+  Medicinal plants are usually identified by practitioners based on years of experience through sensory or olfactory senses. The other method of recognizing these plants involves laboratory-based testing, which requires trained skills, data interpretation which is costly and time-intensive. Automatic ways to identify medicinal plants are useful especially those that are lacking experience in herbal recognition. There is no standard mechanism in identification of medicinal plants. Therefore, we introduce an automatic approach based on statistical machine learning to identify medicinal plants. The main objective is to develop an automatic algorithm to classify medicinal plants using medicinal plant leaves. Leaf images are considered as they contain large number of diverse set of features such as shape, veins, edge features, apices, etc that are useful in identifying medicinal plants. Furthermore, leaves are relatively easy to obtain without damaging the plants. A database of leaf images of medicinal plants in Sri Lanka is not yet available. Hence through this research, we establish a repository of medicinal plant images. This repository is made available to the public through an open-source R software MedLEA, available at https://CRAN.R-project.org/package=MedLEA for research reproducibility. Researchers usually struggle and spend a lot of time establishing a database by gathering many leaf samples as raw data. By sharing our database we produce a training/test database to other researchers to evaluate their algorithm. The images were taken on a white background, positioning center of the white paper. Furthermore, the images are obtained from a normal smartphone without flash light to remove the shadow. This is useful when converting images to binary images to capture the shape accurately. We used non-diseased leaves that have simple arrangement. Furthermore, we used the leaves without petiole. In addition to this we use four benchmark open-source datasets to evaluate our algorithm. They are (i) flavia 1907 images collected from China, (ii) swedish 975 images collected from Sweden, and (iii) kaggle 1584 images collected from UK. We refer to our medicinal plant classification algorithm as MEDIPI : \textbf{MEDI}icinal \textbf{P}lant \textbf{I}dentification. The MEDIPI is divided into offline phase and online phase. The classification algorithm is trained in the offline phase. In the online phase, the pre-trained classification model is used to real-time leaf image classification for general users. Our classification algorithm operates on the features extracted from the image leaves. The offline phase of the algorithm contains four main steps: i) Image processing, ii) Feature extraction, iii) Label images, and iv) Trained a algorithm. The purpose of image processing is to improve the leaf image by removing undesired distortion. The main image processing steps are i) Convert original image to RGB image, ii) Gray scaling, iii) Gaussian smoothing, iv) Binary thresholding, v) Remove stalk, vi) Closing holes, and vii) Resize image. Feeding RGB images with gray scaling, optimize the contrast and intensity of images by reducing dimensions and complexity. Smoothing techniques are applied to remove noise and make the image less clear or distinct. Furthermore, as the result of binary thresholding is used to separate foreground from its background. Removal of stalk and closing holes in foreground is important when capturing the shape of the leaf. The second stage is to extract features from plant leaf images. We introduced 52 computationally efficient interpretable features to classify plant species. These feature are mainly classified in to four groups as (i) shape, (ii) color, (iii) texture, and (iv) scagnostics. Length, width, area, mean of red values, texture correlation, and monotonocity are some of them. Next, we trained our algorithm using random forest, gradient boosting, and extreme gradient boosting. The model trained with random forest algorithm provides the highest accuracy. Our algorithm works as a hierarchical classification system. The hierarchy contains 3 levels. The first level classifies images according to the shape. The second level classifies according to the edge types. The bottom level classifies the plant species. Furthermore, we used high dimensional visualization approaches to visualize what is happening inside the trained algorithm and provides transparency to our black-box model. We compare the accuracy of our proposed algorithm against several benchmarks and other commonly used algorithms for medicinal plants classification. The MEDIPI algorithm yields accurate results to the state-of-the existing techniques in the field. The algorithm is developed based on Python.
+    
+keywords:
+  - Image Processing
+  - Feature extraction
+  - Statistical machine learning
+  - Hierarchy
+  - Binary thresholding
+  - Reproducibility
+bibliography: references.bib
+biblio-style: unsrt
+output:
+  pdf_document:
+    number_sections: true
+  rticles::arxiv_article:
+    keep_tex: true
+longtable: true
+header-includes:
+  - \usepackage{longtable}
+  - \usepackage{amsmath, xparse}
+  - \usepackage{multirow}
+  - \usepackage{subcaption}
+  - \usepackage{caption}
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.pos = "!ht")
+```
+
+```{r,echo=FALSE, comment=NA, message=FALSE, warning=FALSE}
+library(here)
+library(knitr)
+library(tidyverse)
+library(patchwork)
+library(readxl)
+library(ggplot2)
+library(viridis)
+library(maps)
+library(sf)
+```
+
+# Introduction
+
+|       Located in the tropics, Sri Lanka has a collection of plant species with various medicinal properties that have been consumed by generations as herbal treatments for control of diseases and to cure various medical issues. Traditional medicine system which has more than 3000 years of tested and proven efficacy, is still in use [@PMID]. It consists of Ayurveda, Unani, and Deshiya Chikitsa [@article20]. Some of the diseases with complicated etiologies such as diabetes, arthritis, and cancer (for which a permanent cure is not in sight at present) [@PMID] have been known to be completely controlled or cured using the traditional medicinal treatments alone [@articleintro1]. Various plant origins are used to treat disease conditions [@article20] in the traditional medicine system [@8675114].
+
+|       According to the IUCN (International Union for Conservation of Nature) and the World Wildlife Fund, there are 550 medicinal plants in Sri Lanka. Furthermore, the distribution of medicinal plants is not uniform across the world and Sri Lanka is in the top 15 (see Figure \ref{unf1}).   
+
+```{r, echo=FALSE, out.width="40%", fig.align='center',fig.cap="\\label{unf1}Top 15 countries in the world by distribution of medicinal plants (Source: [@inbook])"}
+knitr::include_graphics(here::here("Figures","plot1.png"))
+``` 
+
+|       As shown in Figure \ref{unf1}, Asian countries like China, India, Nepal, Philippines, Malaysia, Thailand and North American countries like United States (USA) have a large collection of medicinal plants when compare with Sri Lanka. Even so, the percentages of medicinal plants of China, India, Nepal, Philippines, Malaysia, Thailand and United States (USA) are lower than Sri Lanka (see Figure \ref{unf2}). Furthermore, Sri Lanka is in the top 7 (see Figure \ref{unf2}). 
+
+```{r, echo=FALSE, out.width="40%", fig.align='center',fig.cap="\\label{unf2}Top 15 countries in the world by percentage of medicinal plants (Source: [@inbook])"}
+knitr::include_graphics(here::here("Figures","plot2.png"))
+``` 
+	
+|       In past 10 years, Sri Lanka had a high demand for exporting medicinal plants and the value around 32 USD one hundred million (see Figure \ref{unf4}) which is an evidence that Sri Lanka has a good market in exporting medicinal plants around the world.  
+
+
+```{r, echo=FALSE, out.width="40%", fig.align='center',fig.cap="\\label{unf4}Distribution of export value of medicinal plants in Sri Lanka on last 10 years (Source: 2020, Trade Map - Trade statistics for international business development, https://www.trademap.org/Index.aspx)"}
+knitr::include_graphics(here::here("Figures","plott2.png"))
+``` 
+
+|       Furthermore, not only Asian countries but also European and North American countries have an interest of buying medicinal plants in Sri Lanka (See Figure \ref{unf3}). This is a proof that how much valuable and popular of Sri Lankan medicinal plants. 
+
+```{r, echo=FALSE, out.width="40%", fig.align='center',fig.cap="\\label{unf3} Top 20 exporters of medicinal plants in Sri Lanka on 2020 (Source: 2020, Trade Map - Trade statistics for International Business Development, https://www.trademap.org/Index.aspx)"}
+knitr::include_graphics(here::here("Figures","plot3.png"))
+``` 
+		
+|       Even though medicinal plants have a high demand around the world there is no standard mechanism in identifying medicinal plants.
+
+
+|        Most algorithms use images as inputs to train the model. Hence, the quality of the image has a direct impact on its performance. Therefore researchers use built-in cameras of a mobile device [@articlee] or a special camera or a scanner to take photographs. Also most of the researchers use secondary datasets such as Flavia, Swedish etc [@8675114;@articlee]. Due to less availability [@8675114] of adequate databases and the datasets contain few number of plant species [@8675114;@articlee], researchers tend to collect their own image datasets. There are restrictions while capturing the plant images. Single leaf, light illumination, shadow effect, and line of sight angle are few of them [@8675114].
+
+|       Images of various parts as leaf, flower, bark, and fruit [@articlee] of the plant species use to train the model. Since leaf contains significant features, most of the researchers use to identify and classify the plant species in developing. Furthermore most of the researchers were focused on shape features [@8675114]. But it is not sufficient to train reliable model properly. Therefore researchers more concern to find what are the most important features to classify plant species.   
+
+|       Furthermore, the existing algorithms mostly developed based on CNN, ANN, PNN, KNN, etc. These models require a large number of memories and become computationally prohibitive and hence, its usefulness can be limited. In addition to that  while these methods can deliver good predictions their interpretability and transparency of the model is limited. We address these research gaps by proposing a image feature-based statistical machine learning algorithm.
+
+
+
+|       Normally medicinal plants are grown in the backyards of houses and very little nurturing effort is required for their growth. They also have high growth rates. Therefore sometimes medicinal plants are considered as weeds [@PMID]. Most Sri Lankans are familiar with the traditional medicinal system and are even able to identify or administer the medicinal plants growing within their area of residence. Therefore, the locals can be observed consuming these medicinal plants to control a disease without the advice of a traditional medicinal practitioner, as they are familiar with the usage of these herbs because of the traditional knowledge, which has been passed down by their ancestors [@article46] substantial botanical expertise is required by the manual identification process and it is also costly and time-consuming. This identification process is a very challenging task for the general public. There is also no standard mechanism in identification of medicinal plants.
+
+|       Therefore by addressing the issues above, our main objective is to develop an automatic algorithm to classify medicinal plants by using statistical machine learning approach. To accomplish this main objective, we seek to achieve some other objectives.
+
+
+|       A database of leaf images of medicinal plants in Sri Lanka is not yet available. Hence through this research, we establish a repository of medicinal plant images. Researchers usually struggle and spend a lot of time establishing a database by gathering many leaf samples as raw data. By sharing our database we produce a training/test database to other researchers to evaluate their algorithm. Leaf images are considered as they contain large number of diverse set of features such as shape, veins, edge features, apices, etc. Therefore through this research we identify features that are useful in classifying medicinal plants based on leaves images. Another objective is to develop an algorithm to extract and quantify leaf features. Furthermore, we used high dimensional visualization approaches to visualize what is happening inside the trained algorithm. We develop the proposed algorithm through an open-source software to identify medicinal plants in Sri Lanka by using leaf images. 
+
+
+|       The significance of this research is to avoid misidentifying medicinal plants in Sri Lanka. This is beneficial in conservation and ecological efforts. Researchers define that endangered medicinal plants as the plants which are facing a high risk of becoming extinct because they are either few in numbers, or threatened by changing environmental parameters [@article12]. The International Union for Conservation of Nature (IUCN) has defined Threatened Herbal plants in three schemes as Critically Endangered, Endangered, and vulnerable. In the world, nearly 15,000 species of medicinal plants are now threatened. In Sri Lanka 280 plant species are threatened. According to the recent surveys [@article12], there are 1432 medicinal plant species in Sri Lanka, and out of the 100-200 species are threatened. Abarema begimena, Ashoka tree(Saraca Asoka), Beautiful Leaf(Calopyllum trapezifolium), Aglaia apiocarpa are few of them.
+
+|       The algorithm developed by us is based on the leaf images. Since leaves are relatively easy to obtain without damaging the plants, there is no harm for the plants because of the development of algorithm. Our algorithm works as a hierarchical classification system. Therefore even though we don't know the exact species name, we can follow the first 2 levels. As the result of that misidentification rate and computation time will be decreased. 
+
+
+|       Outline should be written.
+
+
+# Methodology
+
+## Overview of the Algorithm
+
+|       The aim of this chapter is to provide a general overview of the methodology used to develop our classification algorithm. The classification algorithm we introduce contains two main phases (i) The offline phase, and (ii) The online phase.
+
+```{r, echo=FALSE, out.width="70%", fig.align='center',fig.cap="\\label{ovAlgo1}Workflow of the offline phase of the algorithm"}
+knitr::include_graphics(here::here("Figures","methodology.png"))
+```
+
+|       As shown in Figure \ref{ovAlgo1}, the workflow of the offline phase of the algorithm contains main 4 steps as:
+
+\begin{enumerate}
+    \item Image Acquisition 
+    \item Image Processing
+    \item Feature Extraction
+    \item Algorithm Development and Visualization of Algorithm Performance
+\end{enumerate}
+
+
+```{r, echo=FALSE, out.width="90%", fig.align='center',fig.cap="\\label{fig:meth}Methodology Diagram"}
+knitr::include_graphics(here::here("Figures","Overview_new1.png"))
+```
+
+|       Figure \ref{fig:meth} shows the overview of the methodology that we followed. Online phase of the study is colored by orange and offline phase of the study is colored by blue. Firstly we acquire the images of leaves from existing datasets and the leaf image dataset that was collected by ourselves. Then each leaf image data set is divided as training and test images. Training image dataset was contained 80\% of the images and test image dataset is contained 20\% of the images from each leaf image dataset. We use four datasets to built and evaluate our algorithm. A brief summary of the datasets are given in the table \ref{tbdes}. 
+
+
+\begin{table}[h]
+\centering
+\begin{tabular}{l c c }
+
+\hline
+Dataset                   & \multicolumn{1}{l}{Image format} & \multicolumn{1}{l}{Total number of leaf images}  \\ \hline
+Actual Leaf Image Dataset & Color & 1099                                                                      \\ %\hline
+Flavia dataset            & Color & 1907                                                                      \\ %\hline
+
+Swedish Leaf Image Dataset      & Color & 975                                                                       \\ %\hline
+Kaggle Leaf Image Dataset & Binary & 1584                                                                      \\ \hline
+
+\end{tabular}
+\caption{Summary of datasets used in the algorithm}
+\label{tbdes}
+\end{table}
+
+
+|       Next step is image processing. As shown in Figure \ref{fig:meth}, the main image processing steps are Convert to RGB image, Gray scaling, Gaussian smoothing, Binary thresholding, Remove stalk, Closing holes and Resize image. Since Kaggle leaf image dataset contains only binary images, resizing step is enough as an image processing technique. We can follow remove stalk and closing holes technique only if the dataset contains leaf images with stalk and with holes (eg:- diseased leaves). After applying image processing steps, the images are ready to extract features. There are four classes of features: (i) Shape features, (ii) Color features, (iii) Texture features, and (iv) Scagnostics features of Cartesian and polar coordinates. In our research we also introduce some new features: Correlation of Cartesian contour, x and y coordinates of the contour, Number of minimum and maximum points, Number of convex points. Now the dataset contained all the features with the leaf image id. But Kaggle leaf image dataset doesn't have Color and Texture features. Robust scaling is applied to scale the data. To visualize the feature dataset with labels, Linear Discriminant Analysis is used. Our algorithm operates according to a hierarchical classification system. First the leaves are classified according to the shape such as; (i) diamond, (ii) simple round, (iii) round, (iv) needle, and (v) heart shape. The second level classifies according to the edge types. The bottom level classifies the plant species. Before training the model we labeled all leaves according to shape type, edge type, leaf arrangement, apex type, base type etc. These labels are identified by exploring "Ayurvedic Medicinal Plants of Sri Lanka", medicinal leaf repository maintained by, Barberyn Ayurveda resort and University of Ruhuna. The information we gathered by exploring the "Ayurvedic Medicinal Plants of Sri Lanka", medicinal leaf repository are made available through our R package MedLEA. Next step is to train the model for the training dataset by using machine learning techniques. This is a multi-class supervised learning classification problem. The trained model is used to predict labels in the the test dataset. 
+
+* MEDIPI
+
+|       Our medicinal plant classification algorithm is defined as MEDIPI: \textbf{MEDI}cinal \textbf{P}lant \textbf{I}dentification. The MEDIPI is divided into offline phase and online phase. The classification algorithm is trained in the offline phase. In the online phase the pre-trained classification model is used to real-time leaf image classification for general users.
+
+```{r, echo=FALSE, out.width="15%", fig.align='center',fig.cap="\\label{hex1}Hexsticker of MEDIPI"}
+knitr::include_graphics(here::here("Figures","sticker1.png"))
+```
+
+## Data
+
+|       We use four datasets. There is one primary dataset and three secondary datasets. The primary dataset is named as MedLEA. The secondary datasets are;
+
+\begin{itemize}
+  \item MedLEA
+  \item Flavia
+  \item Swedish
+  \item Kaggle
+\end{itemize}
+
+
+### Secondary Data
+
+* Flavia Leaf Image Dataset
+    
+|       The Flavia dataset contains 1907 leaf images. There are 32 different species and each have 50-77 images. Scanners and digital cameras are used to acquire the leaf images on plain background. The isolated leaf images contain blades only, without petiole. These leaf images are collected from the most common plants in Yangtze, Delta, China [@articlee]. Those leaves were sampled on the campus of the Nanjing University and the Sun Yat-Sen arboretum, Nanking, China [@articlee]. (\url{https://sourceforge.net/projects/flavia/files/Leaf%2520Image%2520Dataset/})
+
+
+* Swedish Leaf Image Dataset
+    
+|       The Swedish dataset contains 1125 images. The images of isolated leaf scans on a plain background of 15 Swedish tree species, with 75 leaves per species. This dataset has been captured as part of a joined leaf classification project between the Linkoping University and the Swedish  Museum of Natural History [@articlee]. (\url{https://www.cvl.isy.liu.se/en/research/datasets/swedish-leaf/})
+
+
+
+* Kaggle Leaf Image Dataset
+    
+|       This dataset consists of 1,584 images of leaf images of 99 species and 16 images per species. These leaf images were already converted to binary images. This dataset originates from leaf images collected by  James Cope, Thibaut Beghin, Paolo Remagnino, \& Sarah Barman of the Royal Botanic Gardens, Kew, UK. (\url{https://www.kaggle.com/c/leaf-classification})
+
+
+
+```{r, echo=FALSE, out.width="70%", fig.align='center'}
+knitr::include_graphics(here::here("Figures","datasets.png"))
+```
+
+### Primary Data
+
+|       Image collection process contains 5 main steps as shown in figure \ref{figaq}. This approach is very simple, easy, and can be followed without any expertise knowledge. 
+
+```{r, echo=FALSE, out.width="80%", fig.align='center',fig.cap="\\label{figaq}Image collection process of medicinal plants in Sri Lanka"}
+knitr::include_graphics(here::here("Figures","actual_image_collection_process.png"))
+```
+
+
+
+|       Firstly we have to select a plant that we are going to use for this classification. Then have to find a leaf and pick it. In this step, have to be more careful about selecting the leaf. Our algorithm considers only the leaf images without any diseases. When picking the leaf, use a scissor to pick the leaf without petiole. Because the algorithm considers only the leaf without petiole. Make sure that the leaf has to pick in the morning time. Because the leaf looks fresh in the morning time.
+
+|       After picking the leaf, have to clean it by using a small brush or a piece of paper serviette. Because there are small water bubbles, soil seeds and mud patches.
+
+|       In some cases, the leaf looks like rounding from the apex or base or margin of the leaf can’t put on a flat surface. Therefore will be problematic when putting it to the algorithm. Because the algorithm is difficult to capture the shape of the leaf correctly. To avoid these problems, press the leaf approximately 1 or 2 days (In some cases less than 1 day is enough), before taking the photos.
+
+|       Then keep the pressed leaf in a white paper. In this step, we have to consider about where we have to keep it. Make sure to keep the leaf in the centre of the white paper. The reason is that the converting to binary image work well when the leaf is in the centre of the white paper.
+
+|       Finally when taking the photo, have to take the closest photo without the flash of the camera (see figure \ref{ex2}). Closest photo because algorithm is difficult to extract the contour of a very small leaf (see figure \ref{ex2}), decrease the amount of computational load that is exerted upon the graphic processing unit, and reduce the unnecessary foreground region [@8675114]. When converting to the binary images, to capture the shape of the leaf correctly have to remove the shadow of the leaf much as can. Therefore by using the camera without flash, can remove the shadow (see figure \ref{ex2}). Make sure the photo is taken in the daylight to ignore the effect of light illumination. 
+
+
+
+```{r, echo=FALSE, out.width="50%", fig.align='center',fig.cap="\\label{ex2}"}
+knitr::include_graphics(here::here("Figures","ex2.png"))
+```  
+
+
+* MedLEA
+
+|       Through this research, we establish a repository of medicinal plant images in Sri Lanka. This repository is made available to the public through an open-source R software MedLEA, available at https://CRAN.R-project.org/package=MedLEA for research reproducibility.
+
+```{r, echo=FALSE, out.width="15%", fig.align='center',fig.cap="\\label{hex1}Hexsticker of MedLEA"}
+knitr::include_graphics(here::here("Figures","sticker.png"))
+```
+
+
+|       There are 1099 images of leaf images of 31 species and 29-45 images per species of medicinal plants in Sri Lanka. These leaves have simple arrangement. A single leaf that is never divided into smaller leaflet units is know as a leaf with simple arrangement. That leaf is always attached to a twing by its stem or the petiole. The margins, or edges, of the leaf can be smooth, lobed, or toothed. The photos were taken from the device, Huawei nova 3i. The closest photos are captured on a white background.
+
+
+## Image Processing
+
+|       Image processing plays a vital role in leaf image identification. Image processing is applied to reduce noise, background subtraction and content enhancement in the identification process [@8675114]. The workflow we use to process images in this paper is shown in Figure \ref{fig:test2}. This includes seven main steps. They are: i) converting BGR (Blue-Green-Red) image to RGB (Red-Green-Blue), ii) gray scaling, iii) Gaussian filtering, iv) binary thresholding, v) remove stalk, vi) close holes, and vii) image resizing. Some of these steps applicable only for specific images. For example,  apply remove stalk is applicable only to leaf images which has stalk.
+
+```{r, echo=FALSE, out.width="70%", fig.align='center',fig.cap="\\label{fig:test2}Image processing"}
+knitr::include_graphics(here::here("Figures","image_processing.png"))
+``` 
+
+|       Feeding RGB images with gray scaling, optimize the contrast and intensity of images by reducing dimensions and complexity. Smoothing techniques are applied to remove noise and make the image less clear or distinct. Furthermore, as the result of binary thresholding is used to separate foreground from its background. Removal of stalk and closing holes in foreground is important when capturing the shape of the leaf.   
+
+
+```{r, echo=FALSE, out.width="50%", fig.align='center',fig.cap="\\label{fig:rst}"}
+knitr::include_graphics(here::here("Figures/rst.png"))
+``` 
+
+|       Figure \ref{fig:rst} shows that binary image after removing the stalk and closing holes according to the order.
+
+|       More details about the image processing steps are discussed in the Computer-aided Interpretable Features for Leaf Image Classification paper.     
+
+
+
+## Feature extraction
+
+|       Most crucial part is to extract distinctive leaf features from the images. Therefore most of the time research more focused on neural network models like CNN [@4458016;@articlepl;@inproceedings] which are complicated and hard to understand what happening inside the algorithm. We introduced pre-calculate features which can be easy to interpret and generalize. They are also computational efficient. Mainly we focused on four types of features of leaf images as shape features, texture features, color features and scagnostics features. We identified altogether 52 features. More details about the features of the leaf are discussed in the Computationally Efficient Features paper. The following table shows the summary of all features.
+
+
+
+
+
+
+\begin{longtable}{p{1cm}p{1cm}p{1cm}p{1.5cm}p{1cm}p{6cm}p{0.7cm}p{1.1cm}p{1cm}}
+\hline
+\begin{tabular}[c]{@{}l@{}}Image\\ type\end{tabular}                  & \begin{tabular}[c]{@{}l@{}}Feature\\ category\end{tabular} & Feature      & Feature name                                                                                & Figure                                                                              & Formula                                                                                                                                                          & Range         & Software                 & \begin{tabular}[c]{@{}l@{}}Software\\ package\end{tabular}    \\ \hline
+\endfirsthead
+%
+\multicolumn{9}{c}%
+{{\bfseries Table \thetable\ continued from previous page}} \\
+\hline
+\begin{tabular}[c]{@{}l@{}}Image\\ type\end{tabular}                  & \begin{tabular}[c]{@{}l@{}}Feature\\ category\end{tabular} & Feature      & Feature name                                                                                & Figure                                                                              & Formula                                                                                                                                                          & Range         & Software                 & \begin{tabular}[c]{@{}l@{}}Software\\ package\end{tabular}    \\ \hline
+\endhead
+%
+\hline
+\endfoot
+%
+\endlastfoot
+%
+\multirow{20}{*}{Binary}                                              & \multirow{20}{*}{Shape}                                    & $F_1$        & Diameter                                                                                             & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/diameter.png}   & \begin{tabular}[c]{@{}l@{}}$F_1 = max(\sqrt{(x_i-x_j)^2 + (y_i-y_j)^2}); $\\ $\forall i,j, i \neq j$\end{tabular}                                                & [0,$\infty$]  & \multirow{20}{*}{Python} & \begin{tabular}[c]{@{}l@{}}combinations,\\ numpy\end{tabular} \\
+                                                                      &                                                            & $F_2$        & Physiological length                                                                                 & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/Length_new.png} & $F_2 = \text{Length of the rectangle}$                                                                                                                           & [0,$\infty$]  &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_3$        & Physiological width                                                                                  & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/width.png}      & $F_3 = \text{Width of the rectangle}$                                                                                                                            & [0,$\infty$]  &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_4$        & Area                                                                                                 & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/area.png}       & \begin{tabular}[c]{@{}l@{}}$F_4 = \text{Number of zero pixels covered}$\\ $\text{by the contour}$\end{tabular}                                                   & [0,$\infty$]  &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_5$        & Perimeter                                                                                            & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/perimeter.png}  & \begin{tabular}[c]{@{}l@{}}$F_5 =  \sum_{i=0}^{n}d_i ; \text{where } n$ \\ $\text{ is the number of distances}$\\ $\text{around the contour}$\end{tabular}       & [0,$\infty$]  &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_6$        & Eccentricity                                                                                         &                                                                                     & \begin{tabular}[c]{@{}l@{}}$F_6 = \sqrt{1-\frac{b^2}{a^2}}; \text{where } a$ \\ $\text{ is semi major axis and } $\\ $b \text{ is semi minor axis}$\end{tabular} & [0,1]         &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_7$, $F_8$ & \begin{tabular}[c]{@{}l@{}}x and y \\ coordinate\\ of center\end{tabular}                            & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/centroid.png}   &                                                                                                                                                                  &               &                          & scipy.ndimage                                                 \\
+                                                                      &                                                            & $F_9$        & \begin{tabular}[c]{@{}l@{}}Aspect \\ ratio\end{tabular}                                              & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/AR.png}         & $F_9 = \frac{F_2}{F_3}$                                                                                                                                          & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{10}$     & \begin{tabular}[c]{@{}l@{}}Roundness/ \\ Circularity\end{tabular}                                    & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/roudness.png}   & $F_{10} = \frac{4 \pi F_4}{{F_5}^2}$                                                                                                                             & [0,$\infty$]  &                          & numpy                                                         \\
+                                                                      &                                                            & $F_{11}$     & Compactness                                                                                          & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/rect.png}       & $F_{11} = \frac{{F_5}^2}{F_4}$                                                                                                                                   & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{12}$     & Rectangularity                                                                                       &                                                                                     & $F_{12} = \frac{{F_5}^2}{F_4}$                                                                                                                                   & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{13}$     & \begin{tabular}[c]{@{}l@{}}Narrow \\ factor\end{tabular}                                             & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/nf.png}         & $F_{13} = \frac{F_1}{F_2}$                                                                                                                                       & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{14}$     & \begin{tabular}[c]{@{}l@{}}Perimeter \\ ratio of \\ diameter\end{tabular}                            & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/pd.png}         & $F_{14} = \frac{F_5}{F_1}$                                                                                                                                       & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{15}$     & \begin{tabular}[c]{@{}l@{}}Perimeter \\ ratio of\\ physiological \\ length\end{tabular}              & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/pl.png}         & $F_{15} = \frac{F_5}{F_2}$                                                                                                                                       & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{16}$     & \begin{tabular}[c]{@{}l@{}}Perimeter \\ ratio of\\ physiological \\ length \\ and width\end{tabular} & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/plw.png}        & $F_{16} = \frac{F_5}{F_2 * F_3}$                                                                                                                                 & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{17}$     & \begin{tabular}[c]{@{}l@{}}Perimeter \\ convexity\end{tabular}                                       & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/p_con.png}      & $F_{17} = \frac{\text{Perimeter of convex hull}}{F_5}$                                                                                                           & [0,$\infty$]  &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_{18}$     & \begin{tabular}[c]{@{}l@{}}Area \\ convexity\end{tabular}                                            & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/a_c1.png}       & $F_{18} = \frac{(\text{Area of convex hull}-F_4)}{F_4}$                                                                                                          & [0,$\infty$]  &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_{19}$     & \begin{tabular}[c]{@{}l@{}}Area ratio \\ of convexity\end{tabular}                                   & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/a_c2.png}       & $F_{19} = \frac{F_4}{\text{Area of convex hull}}$                                                                                                                & [0,$\infty$]  &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_{20}$     & \begin{tabular}[c]{@{}l@{}}Equivalent \\ diameter\end{tabular}                                       & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/eq_d.png}       & $F_{20} = \sqrt{\frac{4*F_4}{\pi}}$                                                                                                                              & [0,$\infty$]  &                          & numpy                                                         \\
+                                                                      &                                                            & $F_{21}$     & \begin{tabular}[c]{@{}l@{}}Number of \\ convex points\end{tabular}                                   & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/convex.png}     & \begin{tabular}[c]{@{}l@{}}$F_{21} =  \text{Number of vetices} $\\ $\text{of the convexHull}$\end{tabular}                                                       & [0,$\infty$]  &                          & OpenCV                                                        \\
+\multirow{4}{*}{\begin{tabular}[c]{@{}l@{}}Gray\\ scale\end{tabular}} & \multirow{4}{*}{Texture}                                   & $F_{22}$     & Contrast                                                                                             &                                                                                     & $\frac{\sum_{a=1}^{columns}\sum_{b=1}^{rows}(a-b)^2 h(a,b)}{\text{Number of gray levels}-1}$                                                                     & [0,$\infty$]  & \multirow{4}{*}{Python}  & \multirow{4}{*}{mahotas}                                      \\
+                                                                      &                                                            & $F_{23}$     & Entropy                                                                                              &                                                                                     & $-\sum_{a=1}^{columns}\sum_{b=1}^{rows}h(a,b)log_2(h(a,b))$                                                                                                      & [-$\infty$,0] &                          &                                                               \\
+                                                                      &                                                            & $F_{24}$     & Correlation                                                                                          &                                                                                     & $\frac{\sum_{a=1}^{columns}\sum_{b=1}^{rows}(ab)h(a,b)-\mu_{x}\mu _{y}}{\sigma _{x}\sigma _{y}}$                                                                 & [$-1$,1]      &                          &                                                               \\
+                                                                      &                                                            & $F_{25}$     & \begin{tabular}[c]{@{}l@{}}Inverse \\ difference \\ moments\end{tabular}                             &                                                                                     & $\sum_{a=1}^{columns}\sum_{b=1}^{rows}\frac{h(a,b)}{(a-b)^2}$                                                                                                    & [0,$\infty$]  &                          &                                                               \\
+\multirow{6}{*}{Color}                                                & \multirow{6}{*}{Color}                                     & $F_{26}$     & \begin{tabular}[c]{@{}l@{}}Mean red \\ intensity value\end{tabular}                                  &                                                                                     & $F_{26} = \frac{\parbox{15em}{Total intensity value of red\\ channel of the image pixels}}{\parbox{15em}{Total intensity value of the image}}$                                     & [0,$\infty$]  & \multirow{6}{*}{Python}  & \multirow{6}{*}{numpy}                                        \\
+                                                                      &                                                            & $F_{27}$     & \begin{tabular}[c]{@{}l@{}}Mean blue \\ intensity value\end{tabular}                                 &                                                                                     & $F_{27} = \frac{\parbox{15em}{Total intensity value of blue\\ channel of the image pixels}}{\parbox{15em}{Total intensity value of the image}}$                                    & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{28}$     & \begin{tabular}[c]{@{}l@{}}Mean green \\ intensity value\end{tabular}                                &                                                                                     & $F_{28} = \frac{\parbox{15em}{Total intensity value of green\\ channel of the image pixels}}{\parbox{15em}{Total intensity value of the image}}$                                   & [0,$\infty$]  &                          &                                                               \\                                                                      &                                                            & $F_{29}$     & \begin{tabular}[c]{@{}l@{}}Standard \\ deviation \\ of red\\ intensity value\end{tabular}            &                                                                                     &    \begin{tabular}[c]{@{}l@{}}$F_{29} = \frac{\sqrt{\sum_{j=0}^{h}\bigg(\parbox{3em}{Red \\channel\\ intensity}_j - \parbox{3em}{Red \\mean\\ value}\bigg)^2}}{\text{Total intensity value of the image}}$;\\ $\text{where }h \text{ is number of pixels}$\end{tabular}    & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{30}$     & \begin{tabular}[c]{@{}l@{}}Standard \\ deviation \\ of blue\\ intensity value\end{tabular}           &                                                                                     & \begin{tabular}[c]{@{}l@{}}$F_{30} = \frac{\sqrt{\sum_{j=0}^{h}\bigg(\parbox{3em}{Blue \\channel\\ intensity}_j - \parbox{3em}{Blue \\mean\\ value}\bigg)^2}}{\text{Total intensity value of the image}}$;\\ $\text{where }h \text{ is number of pixels}$\end{tabular}   & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{31}$     & \begin{tabular}[c]{@{}l@{}}Standard \\ deviation of \\ green \\ intensity value\end{tabular}         &                                                                                     & \begin{tabular}[c]{@{}l@{}}$F_{31} = \frac{\sqrt{\sum_{j=0}^{h}\bigg(\parbox{3em}{Green \\channel\\ intensity}_j - \parbox{3em}{Green \\mean\\ value}\bigg)^2}}{\text{Total intensity value of the image}}$;\\ $\text{where }h \text{ is number of pixels}$\end{tabular}  & [0,$\infty$]  &                          &                                                               \\  
+        &                                                               \\
+\multirow{12}{*}{Binary}                                              & \multirow{12}{*}{$\text{Scagnostics}$}                              & $F_{sc1}$     & Outlying                                                                                             &                                                                                     & $F_{sc1} = \frac{\text{Total length of edges adjacent to outlying points}}{\text{Total edge length of minimum spanning tree}}$                                                                                                                                                                                                                                                                                                                                                                                                                                    & [0,1]         & \multirow{12}{*}{R}      & \multirow{12}{*}{binostics}                                   \\        
+                                                                      &                                                            & $F_{sc2}$    & Skewed                                                                                               &                                                                                     & $F_{sc2} = 1-\text{weight}*(1-qu_{skew});$ & [0,1]         &                          &                                                               \\
+                                                                      &                                                            & $F_{sc3}$    & Sparse                                                                                               &                                                                                     & \begin{tabular}[c]{@{}l@{}}$F_{sc3} = \text{weight} * \text{90 th percentile}$ \\ of the distribution of edge lengths in \\ the minimum spanning tree\\ $\text{where weight } = 0.7 + \frac{0.3}{1 + \text{Number of vertex}^2}$\end{tabular}                                                                                                                                                                                                                                                                                                                      & [0,1]         &                          &                                                               \\                                                                      
+                                                                      &                                                            & $F_{sc4}$    & Clumpy                                                                                               &                                                                                     & $F_{sc4} = max_j[1-\frac{max_k[length(e_k)]}{length(e_j)}]$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       & [0,1]         &                          &                                                               \\        
+                                                                      &                                                            & $F_{sc5}$    & Striated                                                                                             &                                                                                     & \begin{tabular}[c]{@{}l@{}}$F_{sc5} = \frac{1}{|Ve|}\sum_{\nu \in Ve^{(2)}}^{}I(\cos\theta_{e(\nu,a)e(\nu,b)}<-0.75)$\\ where $Ve^{(2)} \subseteq Ve$ \\and $I()$ be an indicator function\end{tabular}                                                                                                                                                                                                                                                                                                                                                             & [0,1]         &                          &                                                               \\        
+                                                                      &                                                            & $F_{sc6}$    & Convex                                                                                               &                                                                                     & \begin{tabular}[c]{@{}l@{}}$F_{sc6} = \text{weight}*\frac{\text{Area of alpha hull}}{\text{Area of convex hull}}$\\ $\text{where weight } = 0.7 + \frac{0.3}{1 + \text{Number of vertex}^2}$\end{tabular}                                                                                                                                                                                                                                                                                                                                                         & [0,1]         &                          &                                                               \\        
+                                                                      &                                                            & $F_{sc7}$    & Skinny                                                                                               &                                                                                     & $F_{sc7} = 1- \frac{\sqrt{4*\pi*\text{Area of alpha hull}}}{\text{Perimeter of alpha hull}}$                                                                                                                                                                                                                                                                                                                                                                                                                                                                      & [0,1]         &                          &                                                               \\        
+                                                                      &                                                            & $F_{sc8}$    & Stringy                                                                                              &                                                                                     & \begin{tabular}[c]{@{}l@{}}$F_{sc8} = \frac{|Ve^{(2)}|}{|Ve| - |Ve^{(1)}|}$\\ $Ve$ is the number of vertices\end{tabular}                                                                                                                                                                                                                                                                                                                                                                                                                                         & [0,1]         &                          &                                                               \\        
+                                                                      &                                                            & $F_{sc9}$    & Monotonic                                                                                            &                                                                                     & $F_{sc9} = r^2_{Spearman}$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        & [0,1]         &                          &                                                               \\
+                                                                      &                                                            & $F_{32}$     & \begin{tabular}[c]{@{}l@{}}Number of\\ minimum points\end{tabular}                                   &                                                                                     & $F_{32} =  \text{Number of global minimum points}$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                & [0,$\infty$]  &                          &                                                               \\                                                                                                                 &                                                            & $F_{33}$     & \begin{tabular}[c]{@{}l@{}}Number of\\ maximum points\end{tabular}                                   &                                                                                     & $F_{33} =  \text{Number of global maximum points}$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                & [0,$\infty$]  &                          &                                                               \\ 
+                                                                      &                                                            & $F_{34}$     & \begin{tabular}[c]{@{}l@{}}Correlation of\\ cartesian contour\end{tabular}                           &                                                                                     & $F_{34} =  \frac{\sum_{i=0}^{m}(x_i - \overline{\rm x})(y_i - \overline{\rm y})}{\sqrt{\sum_{i=0}^{m} (x_i - \overline{\rm x})^2 (y_i - \overline{\rm y})^2}}$                                                                                                                                                                                                                                                                                                                                                                                                    & [$-1$,1]      &                          &                                                               \\ \hline                                                                      
+\caption{Definitions of features}
+\label{tab:table1}\\
+\end{longtable}
+
+
+## Classification framework
+
+|       Our algorithm works as a hierarchical classification system. The hierarchy contains 3 levels. The first level classifies images according to the shape. The second level classifies according to the edge types. The bottom level classifies the plant species. If we use species names rather than hierarchical classification, it is difficult to manage and occur class imbalance problem due to large number of class labels. In order to develop hierarchical system we explore actual plant image repository: "Ayurvedic Medicinal Plants of Sri Lanka" (\url{http://www.instituteofayurveda.org/plants/}) which describes about most commonly used medicinal plants for practice of Ayurveda in Sri Lanka. This website was created as the result of the project implemented by Barberyn Ayurveda resort and University of Ruhuna. The website was updated on 11th May 2017. Our pilot study was based on this database.
+
+
+|       We investigate 471 medicinal leaves in this repository. By investigating leaf images of each medicinal plant, we recorded the physical appearances (morphological characteristics) of the leaf. Rather than adding variables that regarded to physical appearances, we recorded Sinhala name (Local Name), Family name, and Scientific name as well. There were 22 variables with the primary key (unique) as "Id". There were 18 variables that described about physical appearances of the medicinal leaf images. 
+
+
+
+
+
+
+\section{Exploratory Data Analysis of Ruhuna Dataset}
+
+|       In this section, we present Exploratory Data Analysis to get an idea about the common morphological features of leaves.
+
+\begin{figure}[h]
+\centering
+		\includegraphics[scale=0.7]{./Figures/Ruhuna/plot1.png}
+		\caption{\label{rplot1}Composition of Sample of Ruhuna Dataset by Arrangement of Leaves}
+	    \end{figure}
+
+|       According to the Figure \ref{rplot1}, most of the leaves are arranged in Simple arrangement. Therefore further analysis, we selected the leaves that have simple arrangement.	
+
+
+
+|       According to Table \ref{tab:myruhutable}, most common shapes of the leaves are (i) Diamond, (ii) Simple round, (iii) Heart, (iv) Needle, and (v) Round. Therefore we used these common 5 leaf shapes as the first level of the hierarchy.
+
+|       According to Table \ref{tab:myruhutable}, most of the leaves have smooth edges. Based on the results of the study we identify 4 common edge types as (i) Smooth, (ii) Toothed, (iii) Lobed, and (iv) Crenate.
+
+|       As seen in Table \ref{tab:myruhutable}, most of diamond, heart, round, needle, and simple round shaped leaves have Smooth edges. All of the needle shaped leaves have smooth edges. There are no crenate edged heart shaped leaves. Furthermore, diamond, round, and simple round shaped leaves have smooth, toothed, lobed, and crenate edges. We used edge types to go to the bottom level of the hierarchy.
+
+\begin{figure}[h]
+		\includegraphics[scale=1.0]{./Figures/Classification_hierarchy_new.png}
+		\caption{\label{fig:test}Classification hierarchy}
+	    \end{figure}
+
+|       By conducting the study, we identified that what are the common shapes and edge types of the medicinal leaves in Sri Lanka. We proceed with 5 main shapes as diamond, heart, round, needle, and simple round. By using main 4 edge types as smooth, toothed, lobed, and crenate, we go to the bottom level of the hierarchy. Based on this dataset hierarchy (see figure \ref{fig:test}) is created. Based on these information we develop a hierarchical structure to classify the leaf images by identifying main features. The general hierarchical structure is shown in Figure \ref{dia}.
+	    
+\begin{figure}[h]
+\centering
+		\includegraphics[scale=0.7]{./Figures/Ruhuna/diagram.png}
+		\caption{\label{dia}General hierarchical structure}
+	    \end{figure}
+
+
+
+
+# Results
+
+# Discussion and Conclusions
+
+|       Automatic medicinal plant species identification using leaf images is a popular research field with several critical applications. Through this research, we introduce an automatic algorithm to classify medicinal plants using medicinal plant leaves. Leaf images are considered as they contain large number of diverse set of features such as shape, veins, edge features, apices, etc that are useful in identifying medicinal plants.
+
+|       In order to identify medicinal plant species using leaf images, we first do a preliminary study to get an idea about the morphological characteristics like shape, edge type, apex, base, arrangement etc. We identify five main shapes as: (i) Diamond, (ii) Simple round, (iii) Heart shaped, (iv) Needle, and (v) Round and four main edge types as: (i) Smooth, (ii) Toothed, (iii) Lobed, and (iv) Crenate by observing images in medicinal plant repository maintained by Barberyn Ayurveda resort and University of Ruhuna available at \url{http://www.instituteofayurveda.org/plants/}. Our observed results are converted into a open source R software package called MedLEA: \textbf{Med}icinal \textbf{LEA}f (https://CRAN.R-project.org/package=MedLEA). Furthermore, most of the researches are based on the existing databases like Flavia, Swedish etc. These existing databases contain few plant species and it is not sufficient to train a reliable model properly. In addition to that, a database of leaf images of medicinal plants in Sri Lanka is not yet available. Hence through this research, we establishe a repository of medicinal plant images which is available at MedLEA. We collect the leaf images by following simplest and reliable approach which can be followed without expertise knowledge. The images were taken on a white background, positioning center of the white paper and the images are obtained from a normal smartphone without flash light to remove the shadow.         
+
+
+|       Furthermore, we introduce our medicinal plant classification algorithm as MEDIPI : \textbf{MEDI}icinal \textbf{P}lant \textbf{I}dentification. The MEDIPI is divided into offline phase and online phase. The classification algorithm is trained in the offline phase. In the online phase, the pre-trained classification model is used to real-time leaf image classification for general users. Our classification algorithm operates on the features extracted from the image leaves. Through this research, we introduce 52 computer aided, interpretable features for leaf image recognition. There are four main categories of features that are used to classify leaf images. Many researches are based on shape, texture, and color features. In this research, we introduce new feature category called scagnostics for leaf image classification. Other than that correlation of cartesian coordinate, number of convex points, number of minimum and maximum points are introduced as new shape features. We explore the ability of features to discriminate the classes of interest under supervised learning and unsupervised learning settings using principal component analysis and linear discriminant analysis. Under both experimental settings clear separation of classes are visible in their projection spaces. 
+
+
+|       In addition to that, the offline phase of the algorithm contains four main steps: (i) Image processing, (ii) Feature extraction, (iii) Label images, and (iv) Trained a algorithm. The purpose of image processing is to improve the leaf image by removing undesired distortion. The main image processing steps are (i) Convert original image to RGB image, (ii) Gray scaling, (iii) Gaussian smoothing, (iv) Binary thresholding, (v) Remove stalk, (vi) Closing holes, and (vii) Resize image. 
+
+|       Furthermore, we train our algorithm using random forest, gradient boosting, and extreme gradient boosting. The model trained with random forest algorithm provides the highest accuracy. Our algorithm works as a hierarchical classification system. The hierarchy contains 3 levels. The first level classifies images according to the shape. The second level classifies according to the edge types. The bottom level classifies the plant species. We observe that shape features like (i) x value of Center (cx), (ii) y value of Center (cy), (iii) Entropy, (iv) Perimeter ratio of length and width, (v) Diameter, (vi) Area convexity, (vii) Perimeter convexity, (viii) Narrow Factor, (ix) Area ratio convexity, (x) Physiological length, (xi) Physiological width, (xii) Rectangularity, and (xiii) Eccentricity are more important when classify the leaf images in the first level of the hierarchy. Scagnostic features like (i) Monotonic contour, (ii) Convex polar, (iii) Convex contour, (iv) Striated polar, (v) Striated contour, (vii) Skinny contour, and (vii) Skinny contour are more important in identifying leaf species in the bottom level of the hierarchy.   
+
+|       In addition to that, we use high dimensional visualization approaches as Linear Discriminant Analysis (LDA) to visualize what is happening inside the trained algorithm and provides transparency to our black-box model. We compare the accuracy of our proposed algorithm against several benchmarks and other commonly used algorithms for medicinal plants classification. The MEDIPI algorithm yields accurate results to the state-of-the existing techniques in the field. We have to use training/test from same dataset to get accurate results. Most of the literatures are based on shape feature. By train the algorithms (i) Only with shape features, and (ii) With all feature categories (Shape, color, texture, scagnostic), we observe that shape feature is not sufficient to classify leaf images. 
+
+# Reference
+
+

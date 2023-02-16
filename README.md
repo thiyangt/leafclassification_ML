@@ -1,2 +1,1 @@
-# leafclassification_ML
-Machine Learning for Plant Leaf CLassification
+# Leaf_Image_Classification_Paper

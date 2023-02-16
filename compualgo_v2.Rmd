@@ -1,0 +1,1142 @@
+---
+title: Statistical Machine Learning for Medicinal Plant leaves Classification
+authors:
+  - name: Jayani P.G. Lakshika
+    thanks: Use footnote for providing further information about author (webpage, alternative address)---*not* for acknowledging funding agencies. Optional.
+    department: Department of Statistics
+    affiliation: University of Sri Jayewardenepura
+    location: Nugegoda, Sri Lanka
+    email: jayanilakshika76@gmail.com
+  - name: Thiyanga S. Talagala
+    department: Department of Statistics
+    affiliation: University of Sri Jayewardenepura
+    location: Nugegoda, Sri Lanka
+    email: ttalagala@sjp.ac.lk
+abstract: |
+  Medicinal plants are usually identified by practitioners based on years of experience through sensory or olfactory senses. The other method of recognizing these plants involves laboratory-based testing, which requires trained skills, data interpretation which is costly and time-intensive. Automatic ways to identify medicinal plants are useful especially those that are lacking experience in herbal recognition. There is no standard mechanism in identification of medicinal plants. Therefore, we introduce an automatic approach based on statistical machine learning to identify medicinal plants. The main objective is to develop an automatic algorithm to classify medicinal plants using medicinal plant leaves. Leaf images are considered as they contain large number of diverse set of features such as shape, veins, edge features, apices, etc that are useful in identifying medicinal plants. Furthermore, leaves are relatively easy to obtain without damaging the plants. A database of leaf images of medicinal plants in Sri Lanka is not yet available. Hence through this research, we establish a repository of medicinal plant images. This repository is made available to the public through an open-source R software MedLEA, available at https://CRAN.R-project.org/package=MedLEA for research reproducibility. Researchers usually struggle and spend a lot of time establishing a database by gathering many leaf samples as raw data. By sharing our database we produce a training/test database to other researchers to evaluate their algorithm. The images were taken on a white background, positioning center of the white paper. Furthermore, the images are obtained from a normal smartphone without flash light to remove the shadow. This is useful when converting images to binary images to capture the shape accurately. We used non-diseased leaves that have simple arrangement. Furthermore, we used the leaves without petiole. In addition to this we use four benchmark open-source datasets to evaluate our algorithm. They are (i) flavia 1907 images collected from China, (ii) swedish 975 images collected from Sweden, and (iii) kaggle 1584 images collected from UK. We refer to our medicinal plant classification algorithm as MEDIPI : \textbf{MEDI}icinal \textbf{P}lant \textbf{I}dentification. The MEDIPI is divided into offline phase and online phase. The classification algorithm is trained in the offline phase. In the online phase, the pre-trained classification model is used to real-time leaf image classification for general users. Our classification algorithm operates on the features extracted from the image leaves. The offline phase of the algorithm contains four main steps: i) Image processing, ii) Feature extraction, iii) Label images, and iv) Trained a algorithm. The purpose of image processing is to improve the leaf image by removing undesired distortion. The main image processing steps are i) Convert original image to RGB image, ii) Gray scaling, iii) Gaussian smoothing, iv) Binary thresholding, v) Remove stalk, vi) Closing holes, and vii) Resize image. Feeding RGB images with gray scaling, optimize the contrast and intensity of images by reducing dimensions and complexity. Smoothing techniques are applied to remove noise and make the image less clear or distinct. Furthermore, as the result of binary thresholding is used to separate foreground from its background. Removal of stalk and closing holes in foreground is important when capturing the shape of the leaf. The second stage is to extract features from plant leaf images. We introduced 52 computationally efficient interpretable features to classify plant species. These feature are mainly classified in to four groups as (i) shape, (ii) color, (iii) texture, and (iv) scagnostics. Length, width, area, mean of red values, texture correlation, and monotonocity are some of them. Next, we trained our algorithm using random forest, gradient boosting, and extreme gradient boosting. The model trained with random forest algorithm provides the highest accuracy. Our algorithm works as a hierarchical classification system. The hierarchy contains 3 levels. The first level classifies images according to the shape. The second level classifies according to the edge types. The bottom level classifies the plant species. Furthermore, we used high dimensional visualization approaches to visualize what is happening inside the trained algorithm and provides transparency to our black-box model. We compare the accuracy of our proposed algorithm against several benchmarks and other commonly used algorithms for medicinal plants classification. The MEDIPI algorithm yields accurate results to the state-of-the existing techniques in the field. The algorithm is developed based on Python.
+    
+keywords:
+  - Image Processing
+  - Feature extraction
+  - Statistical machine learning
+  - Hierarchy
+  - Binary thresholding
+  - Reproducibility
+bibliography: references.bib
+biblio-style: unsrt
+output:
+  pdf_document:
+    number_sections: true
+  rticles::arxiv_article:
+    keep_tex: true
+longtable: true
+header-includes:
+  - \usepackage{longtable}
+  - \usepackage{amsmath, xparse}
+  - \usepackage{multirow}
+  - \usepackage{multicol}
+  - \usepackage{booktabs}
+  - \usepackage{subcaption}
+  - \usepackage{caption}
+  - \usepackage{enumitem}
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.pos = "!ht")
+```
+
+```{r,echo=FALSE, comment=NA, message=FALSE, warning=FALSE}
+library(here)
+library(knitr)
+library(tidyverse)
+library(patchwork)
+library(readxl)
+library(ggplot2)
+library(viridis)
+library(maps)
+library(sf)
+```
+
+# Introduction
+
+|       Located in the tropics, Sri Lanka has a collection of plant species with various medicinal properties that have been consumed by generations as herbal treatments for control of diseases and to cure various medical issues. Traditional medicine system which has more than 3000 years of tested and proven efficacy, is still in use [@PMID]. It consists of Ayurveda, Unani, and Deshiya Chikitsa [@article20]. Some of the diseases with complicated etiologies such as diabetes, arthritis, and cancer (for which a permanent cure is not in sight at present) [@PMID] have been known to be completely controlled or cured using the traditional medicinal treatments alone [@articleintro1]. Various plant origins are used to treat disease conditions [@article20] in the traditional medicine system [@8675114].
+
+|       According to the IUCN (International Union for Conservation of Nature) and the World Wildlife Fund, there are 550 medicinal plants in Sri Lanka. Furthermore, the distribution of medicinal plants is not uniform across the world and Sri Lanka is in the top 15 (see Figure \ref{unf1}).   
+
+
+\begin{figure}[!ht]
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=80mm, height=50mm]{./Figures/plot1.png}
+		\caption{\label{unf1}Top 15 countries in the world by distribution of medicinal plants (Source: [@inbook])}
+		
+\end{subfigure}	
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=80mm, height=50mm]{./Figures/plot2.png}
+		\caption{\label{unf2}Top 15 countries in the world by percentage of medicinal plants (Source: [@inbook])}
+		
+\end{subfigure}	
+
+\caption{}
+	    \end{figure}
+
+
+
+|       As shown in Figure \ref{unf1}, Asian countries like China, India, Nepal, Philippines, Malaysia, Thailand and North American countries like United States (USA) have a large collection of medicinal plants when compare with Sri Lanka. Even so, the percentages of medicinal plants of China, India, Nepal, Philippines, Malaysia, Thailand and United States (USA) are lower than Sri Lanka (see Figure \ref{unf2}). Furthermore, Sri Lanka is in the top 7 (see Figure \ref{unf2}). 
+
+
+|       In past 10 years, Sri Lanka had a high demand for exporting medicinal plants and the value around 32 USD one hundred million (see Figure \ref{unf4}) which is an evidence that Sri Lanka has a good market in exporting medicinal plants around the world.  
+
+\begin{figure}[!ht]
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=80mm, height=50mm]{./Figures/plott2.png}
+		\caption{\label{unf4}Distribution of export value of medicinal plants in Sri Lanka on last 10 years (Source: 2020, Trade Map - Trade statistics for international business development, https://www.trademap.org/Index.aspx)}
+		
+\end{subfigure}	
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=80mm, height=50mm]{./Figures/plot3.png}
+		\caption{\label{unf3} Top 20 exporters of medicinal plants in Sri Lanka on 2020 (Source: 2020, Trade Map - Trade statistics for International Business Development, https://www.trademap.org/Index.aspx)}
+		
+\end{subfigure}	
+
+\caption{}
+	    \end{figure}
+
+ 
+
+|       Furthermore, not only Asian countries but also European and North American countries have an interest of buying medicinal plants in Sri Lanka (See Figure \ref{unf3}). This is a proof that how much valuable and popular of Sri Lankan medicinal plants. 
+
+
+		
+|       Even though medicinal plants have a high demand around the world there is no standard mechanism in identifying medicinal plants.
+
+
+|        Most algorithms use images as inputs to train the model. Hence, the quality of the image has a direct impact on its performance. Therefore researchers use built-in cameras of a mobile device [@articlee] or a special camera or a scanner to take photographs. Also most of the researchers use secondary datasets such as Flavia, Swedish etc [@8675114;@articlee]. Due to less availability [@8675114] of adequate databases and the datasets contain few number of plant species [@8675114;@articlee], researchers tend to collect their own image datasets. There are restrictions while capturing the plant images. Single leaf, light illumination, shadow effect, and line of sight angle are few of them [@8675114].
+
+|       Images of various parts as leaf, flower, bark, and fruit [@articlee] of the plant species use to train the model. Since leaf contains significant features, most of the researchers use to identify and classify the plant species in developing. Furthermore most of the researchers were focused on shape features [@8675114]. But it is not sufficient to train reliable model properly. Therefore researchers more concern to find what are the most important features to classify plant species.   
+
+|       Furthermore, the existing algorithms mostly developed based on CNN, ANN, PNN, KNN, etc. These models require a large number of memories and become computationally prohibitive and hence, its usefulness can be limited. In addition to that  while these methods can deliver good predictions their interpretability and transparency of the model is limited. We address these research gaps by proposing a image feature-based statistical machine learning algorithm.
+
+
+
+|       Normally medicinal plants are grown in the backyards of houses and very little nurturing effort is required for their growth. They also have high growth rates. Therefore sometimes medicinal plants are considered as weeds [@PMID]. Most Sri Lankans are familiar with the traditional medicinal system and are even able to identify or administer the medicinal plants growing within their area of residence. Therefore, the locals can be observed consuming these medicinal plants to control a disease without the advice of a traditional medicinal practitioner, as they are familiar with the usage of these herbs because of the traditional knowledge, which has been passed down by their ancestors [@article46] substantial botanical expertise is required by the manual identification process and it is also costly and time-consuming. This identification process is a very challenging task for the general public. There is also no standard mechanism in identification of medicinal plants.
+
+|       Therefore by addressing the issues above, our main objective is to develop an automatic algorithm to classify medicinal plants by using statistical machine learning approach. To accomplish this main objective, we seek to achieve some other objectives.
+
+
+|       A database of leaf images of medicinal plants in Sri Lanka is not yet available. Hence through this research, we establish a repository of medicinal plant images. Researchers usually struggle and spend a lot of time establishing a database by gathering many leaf samples as raw data. By sharing our database we produce a training/test database to other researchers to evaluate their algorithm. Leaf images are considered as they contain large number of diverse set of features such as shape, veins, edge features, apices, etc. Therefore through this research we identify features that are useful in classifying medicinal plants based on leaves images. Another objective is to develop an algorithm to extract and quantify leaf features. Furthermore, we used high dimensional visualization approaches to visualize what is happening inside the trained algorithm. We develop the proposed algorithm through an open-source software to identify medicinal plants in Sri Lanka by using leaf images. 
+
+
+|       The significance of this research is to avoid misidentifying medicinal plants in Sri Lanka. This is beneficial in conservation and ecological efforts. Researchers define that endangered medicinal plants as the plants which are facing a high risk of becoming extinct because they are either few in numbers, or threatened by changing environmental parameters [@article12]. The International Union for Conservation of Nature (IUCN) has defined Threatened Herbal plants in three schemes as Critically Endangered, Endangered, and vulnerable. In the world, nearly 15,000 species of medicinal plants are now threatened. In Sri Lanka 280 plant species are threatened. According to the recent surveys [@article12], there are 1432 medicinal plant species in Sri Lanka, and out of the 100-200 species are threatened. Abarema begimena, Ashoka tree(Saraca Asoka), Beautiful Leaf(Calopyllum trapezifolium), Aglaia apiocarpa are few of them.
+
+|       The algorithm developed by us is based on the leaf images. Since leaves are relatively easy to obtain without damaging the plants, there is no harm for the plants because of the development of algorithm. Our algorithm works as a hierarchical classification system. Therefore even though we don't know the exact species name, we can follow the first 2 levels. As the result of that misidentification rate and computation time will be decreased. 
+
+
+|       Outline should be written.
+
+
+# Methodology
+
+## Overview of the Algorithm
+
+|       The aim of this chapter is to provide a general overview of the methodology used to develop our classification algorithm. The classification algorithm we introduce contains two main phases (i) The offline phase, and (ii) The online phase.
+
+```{r, echo=FALSE, out.width="70%", fig.align='center',fig.cap="\\label{ovAlgo1}Workflow of the offline phase of the algorithm"}
+knitr::include_graphics(here::here("Figures","methodology.png"))
+```
+
+|       As shown in Figure \ref{ovAlgo1}, the workflow of the offline phase of the algorithm contains main 4 steps as:
+
+\begin{enumerate}
+    \item Image Acquisition 
+    \item Image Processing
+    \item Feature Extraction
+    \item Algorithm Development and Visualization of Algorithm Performance
+\end{enumerate}
+
+
+```{r, echo=FALSE, out.width="90%", fig.align='center',fig.cap="\\label{fig:meth}Methodology Diagram"}
+knitr::include_graphics(here::here("Figures","Overview_new1.png"))
+```
+
+|       Figure \ref{fig:meth} shows the overview of the methodology that we followed. Online phase of the study is colored by orange and offline phase of the study is colored by blue. Firstly we acquire the images of leaves from existing datasets and the leaf image dataset that was collected by ourselves. Then each leaf image data set is divided as training and test images. Training image dataset was contained 80\% of the images and test image dataset is contained 20\% of the images from each leaf image dataset. We use four datasets to built and evaluate our algorithm. A brief summary of the datasets are given in the Table \ref{tbdes}. 
+
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{l c c }
+
+\hline
+Dataset                   & \multicolumn{1}{l}{Image format} & \multicolumn{1}{l}{Total number of leaf images}  \\ \hline
+Actual Leaf Image Dataset (MedLEA) & Color & 1099                                                                      \\ %\hline
+Flavia dataset            & Color & 1907                                                                      \\ %\hline
+
+Swedish Leaf Image Dataset      & Color & 975                                                                       \\ %\hline
+Kaggle Leaf Image Dataset & Binary & 1584                                                                      \\ \hline
+
+\end{tabular}
+\caption{Summary of datasets used in the algorithm}
+\label{tbdes}
+\end{table}
+
+
+|       Next step is image processing. As shown in Figure \ref{fig:meth}, the main image processing steps are Convert to RGB image, Gray scaling, Gaussian smoothing, Binary thresholding, Remove stalk, Closing holes and Resize image. Since Kaggle leaf image dataset contains only binary images, resizing step is enough as an image processing technique. We can follow remove stalk and closing holes technique only if the dataset contains leaf images with stalk and with holes (eg:- diseased leaves). After applying image processing steps, the images are ready to extract features. There are four classes of features: (i) Shape features, (ii) Color features, (iii) Texture features, and (iv) Scagnostics features of Cartesian and polar coordinates. In our research we also introduce some new features: Correlation of Cartesian contour, x and y coordinates of the contour, Number of minimum and maximum points, Number of convex points. Now the dataset contained all the features with the leaf image id. But Kaggle leaf image dataset doesn't have Color and Texture features. Robust scaling is applied to scale the data. To visualize the feature dataset with labels, Linear Discriminant Analysis is used. Our algorithm operates according to a hierarchical classification system. First the leaves are classified according to the shape such as; (i) diamond, (ii) simple round, (iii) round, (iv) needle, and (v) heart shape. The second level classifies according to the edge types. The bottom level classifies the plant species. Before training the model we labeled all leaves according to shape type, edge type, leaf arrangement, apex type, base type etc. These labels are identified by exploring "Ayurvedic Medicinal Plants of Sri Lanka", medicinal leaf repository maintained by, Barberyn Ayurveda resort and University of Ruhuna. The information we gathered by exploring the "Ayurvedic Medicinal Plants of Sri Lanka", medicinal leaf repository are made available through our R package MedLEA. Next step is to train the model for the training dataset by using machine learning techniques. This is a multi-class supervised learning classification problem. The trained model is used to predict labels in the the test dataset.
+
+```{r, echo=FALSE, out.width="90%", fig.align='center',fig.cap="\\label{fig:test}Classification hierarchy"}
+knitr::include_graphics(here::here("Figures","Classification_hierarchy_new.png"))
+```
+
+* MEDIPI
+
+|       Our medicinal plant classification algorithm is defined as MEDIPI: \textbf{MEDI}cinal \textbf{P}lant \textbf{I}dentification. The MEDIPI is divided into offline phase and online phase. The classification algorithm is trained in the offline phase. In the online phase the pre-trained classification model is used to real-time leaf image classification for general users.
+
+## Data
+
+|       We use four datasets. There is one primary dataset and three secondary datasets. The primary dataset is named as MedLEA. The secondary datasets are Flavia, Swedish, and Kaggle.
+
+
+### Secondary Data
+
+|       A brief summary of the secondary datasets are given in the Table \ref{tablesec}.
+
+\begin{table}[!ht]
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lllllll}
+\hline
+Dataset & \begin{tabular}[c]{@{}l@{}}Image\\ format\end{tabular} & \begin{tabular}[c]{@{}l@{}}Number of\\ Species\end{tabular} & \begin{tabular}[c]{@{}l@{}}Number of\\ images from\\ one species\end{tabular} & \begin{tabular}[c]{@{}l@{}}Number of\\ leaf images\end{tabular} & \begin{tabular}[c]{@{}l@{}}Collected\\ country\end{tabular} & Remarks                                                                                                                                                                                                  \\ \hline
+Flavia  & Color                                                  & 32                                                          & 50-77                                                                         & 1907                                                            & China                                                       & \begin{tabular}[c]{@{}l@{}}Scanners and digital \\ cameras are used to acquire \\ the leaf images on plain background. \\ The isolated leaf images contain \\ blades only, without petiole.\end{tabular} \\
+Swedish & Color                                                  & 15                                                          & 75                                                                            & 1125                                                            & Swedish                                                     & \begin{tabular}[c]{@{}l@{}}The images of isolated \\ leaf scans on a plain \\ background\end{tabular}                                                                                                    \\
+Kaggle  & Binary                                                 & 99                                                          & 16                                                                            & 1584                                                            & \begin{tabular}[c]{@{}l@{}}United\\ Kingdom\end{tabular}    &                                                                                                                                                                                                          \\ \hline
+\end{tabular}%
+}
+\caption{Summary of secondary datasets}
+\label{tablesec}
+\end{table}
+
+
+```{r, echo=FALSE, out.width="70%", fig.align='center'}
+knitr::include_graphics(here::here("Figures","datasets.png"))
+```
+
+### Primary Data
+
+|       Image collection process contains 5 main steps as shown in figure \ref{figaq}. This approach is very simple, easy, and can be followed without any expertise knowledge. 
+
+```{r, echo=FALSE, out.width="80%", fig.align='center',fig.cap="\\label{figaq}Image collection process of medicinal plants in Sri Lanka"}
+knitr::include_graphics(here::here("Figures","actual_image_collection_process.png"))
+```
+
+
+
+|       Firstly we have to select a plant that we are going to use for this classification. Then have to find a leaf and pick it. In this step, have to be more careful about selecting the leaf. Our algorithm considers only the leaf images without any diseases. When picking the leaf, use a scissor to pick the leaf without petiole. Because the algorithm considers only the leaf without petiole. Make sure that the leaf has to pick in the morning time. Because the leaf looks fresh in the morning time.
+
+|       After picking the leaf, have to clean it by using a small brush or a piece of paper serviette. Because there are small water bubbles, soil seeds and mud patches.
+
+|       In some cases, the leaf looks like rounding from the apex or base or margin of the leaf can’t put on a flat surface. Therefore will be problematic when putting it to the algorithm. Because the algorithm is difficult to capture the shape of the leaf correctly. To avoid these problems, press the leaf approximately 1 or 2 days (In some cases less than 1 day is enough), before taking the photos.
+
+|       Then keep the pressed leaf in a white paper. In this step, we have to consider about where we have to keep it. Make sure to keep the leaf in the centre of the white paper. The reason is that the converting to binary image work well when the leaf is in the centre of the white paper.
+
+|       Finally when taking the photo, have to take the closest photo without the flash of the camera (see figure \ref{ex2}). Closest photo because algorithm is difficult to extract the contour of a very small leaf (see figure \ref{ex2}), decrease the amount of computational load that is exerted upon the graphic processing unit, and reduce the unnecessary foreground region [@8675114]. When converting to the binary images, to capture the shape of the leaf correctly have to remove the shadow of the leaf much as can. Therefore by using the camera without flash, can remove the shadow (see figure \ref{ex2}). Make sure the photo is taken in the daylight to ignore the effect of light illumination. 
+
+
+
+```{r, echo=FALSE, out.width="50%", fig.align='center',fig.cap="\\label{ex2}"}
+knitr::include_graphics(here::here("Figures","ex2.png"))
+```  
+
+
+* MedLEA
+
+|       Through this research, we establish a repository of medicinal plant images in Sri Lanka. This repository is made available to the public through an open-source R software MedLEA, available at https://CRAN.R-project.org/package=MedLEA for research reproducibility.
+
+|       There are 1099 images of leaf images of 31 species and 29-45 images per species of medicinal plants in Sri Lanka. These leaves have simple arrangement. A single leaf that is never divided into smaller leaflet units is know as a leaf with simple arrangement. That leaf is always attached to a twing by its stem or the petiole. The margins, or edges, of the leaf can be smooth, lobed, or toothed. The photos were taken from the device, Huawei nova 3i. The closest photos are captured on a white background.
+
+
+## Image Processing
+
+|       Image processing plays a vital role in leaf image identification. Image processing is applied to reduce noise, background subtraction and content enhancement in the identification process [@8675114]. The workflow we use to process images in this paper is shown in Figure \ref{fig:test2}. This includes seven main steps. They are: i) converting BGR (Blue-Green-Red) image to RGB (Red-Green-Blue), ii) gray scaling, iii) Gaussian filtering, iv) binary thresholding, v) remove stalk, vi) close holes, and vii) image resizing. Some of these steps applicable only for specific images. For example,  apply remove stalk is applicable only to leaf images which has stalk.
+
+```{r, echo=FALSE, out.width="70%", fig.align='center',fig.cap="\\label{fig:test2}Image processing"}
+knitr::include_graphics(here::here("Figures","image_processing.png"))
+``` 
+
+|       Feeding RGB images with gray scaling, optimize the contrast and intensity of images by reducing dimensions and complexity. Smoothing techniques are applied to remove noise and make the image less clear or distinct. Furthermore, as the result of binary thresholding is used to separate foreground from its background. Removal of stalk and closing holes in foreground is important when capturing the shape of the leaf.   
+
+
+```{r, echo=FALSE, out.width="50%", fig.align='center',fig.cap="\\label{fig:rst}"}
+knitr::include_graphics(here::here("Figures/rst.png"))
+``` 
+
+|       Figure \ref{fig:rst} shows that binary image after removing the stalk and closing holes according to the order.
+
+|       More details about the image processing steps are discussed in the Computer-aided Interpretable Features for Leaf Image Classification paper.     
+
+
+
+## Feature extraction
+
+|       Most crucial part is to extract distinctive leaf features from the images. Therefore most of the time research more focused on neural network models like CNN [@4458016;@articlepl;@inproceedings] which are complicated and hard to understand what happening inside the algorithm. We introduced pre-calculate features which can be easy to interpret and generalize. They are also computational efficient. Mainly we focused on four types of features of leaf images as shape features, texture features, color features and scagnostics features. We identified altogether 52 features. More details about the features of the leaf are discussed in the Computationally Efficient Features paper. The following table shows the summary of all features.
+
+
+
+\begin{longtable}{p{1cm}p{1cm}p{1cm}p{1.5cm}p{1cm}p{6cm}p{0.7cm}p{1.1cm}p{1cm}}
+\hline
+\begin{tabular}[c]{@{}l@{}}Image\\ type\end{tabular}                  & \begin{tabular}[c]{@{}l@{}}Feature\\ category\end{tabular} & Feature      & Feature name                                                                                & Figure                                                                              & Formula                                                                                                                                                          & Range         & Software                 & \begin{tabular}[c]{@{}l@{}}Software\\ package\end{tabular}    \\ \hline
+\endfirsthead
+%
+\multicolumn{9}{c}%
+{{\bfseries Table \thetable\ continued from previous page}} \\
+\hline
+\begin{tabular}[c]{@{}l@{}}Image\\ type\end{tabular}                  & \begin{tabular}[c]{@{}l@{}}Feature\\ category\end{tabular} & Feature      & Feature name                                                                                & Figure                                                                              & Formula                                                                                                                                                          & Range         & Software                 & \begin{tabular}[c]{@{}l@{}}Software\\ package\end{tabular}    \\ \hline
+\endhead
+%
+\hline
+\endfoot
+%
+\endlastfoot
+%
+\multirow{20}{*}{Binary}                                              & \multirow{20}{*}{Shape}                                    & $F_1$        & Diameter                                                                                             & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/diameter.png}   & \begin{tabular}[c]{@{}l@{}}$F_1 = max(\sqrt{(x_i-x_j)^2 + (y_i-y_j)^2}); $\\ $\forall i,j, i \neq j$\end{tabular}                                                & [0,$\infty$]  & \multirow{20}{*}{Python} & \begin{tabular}[c]{@{}l@{}}combinations,\\ numpy\end{tabular} \\
+                                                                      &                                                            & $F_2$        & Physiological length                                                                                 & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/Length_new.png} & $F_2 = \text{Length of the rectangle}$                                                                                                                           & [0,$\infty$]  &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_3$        & Physiological width                                                                                  & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/width.png}      & $F_3 = \text{Width of the rectangle}$                                                                                                                            & [0,$\infty$]  &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_4$        & Area                                                                                                 & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/area.png}       & \begin{tabular}[c]{@{}l@{}}$F_4 = \text{Number of zero pixels covered}$\\ $\text{by the contour}$\end{tabular}                                                   & [0,$\infty$]  &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_5$        & Perimeter                                                                                            & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/perimeter.png}  & \begin{tabular}[c]{@{}l@{}}$F_5 =  \sum_{i=0}^{n}d_i ; \text{where } n$ \\ $\text{ is the number of distances}$\\ $\text{around the contour}$\end{tabular}       & [0,$\infty$]  &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_6$        & Eccentricity                                                                                         &                                                                                     & \begin{tabular}[c]{@{}l@{}}$F_6 = \sqrt{1-\frac{b^2}{a^2}}; \text{where } a$ \\ $\text{ is semi major axis and } $\\ $b \text{ is semi minor axis}$\end{tabular} & [0,1]         &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_7$, $F_8$ & \begin{tabular}[c]{@{}l@{}}x and y \\ coordinate\\ of center\end{tabular}                            & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/centroid.png}   &                                                                                                                                                                  &               &                          & scipy.ndimage                                                 \\
+                                                                      &                                                            & $F_9$        & \begin{tabular}[c]{@{}l@{}}Aspect \\ ratio\end{tabular}                                              & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/AR.png}         & $F_9 = \frac{F_2}{F_3}$                                                                                                                                          & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{10}$     & \begin{tabular}[c]{@{}l@{}}Roundness/ \\ Circularity\end{tabular}                                    & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/roudness.png}   & $F_{10} = \frac{4 \pi F_4}{{F_5}^2}$                                                                                                                             & [0,$\infty$]  &                          & numpy                                                         \\
+                                                                      &                                                            & $F_{11}$     & Compactness                                                                                          & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/rect.png}       & $F_{11} = \frac{{F_5}^2}{F_4}$                                                                                                                                   & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{12}$     & Rectangularity                                                                                       &                                                                                     & $F_{12} = \frac{{F_5}^2}{F_4}$                                                                                                                                   & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{13}$     & \begin{tabular}[c]{@{}l@{}}Narrow \\ factor\end{tabular}                                             & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/nf.png}         & $F_{13} = \frac{F_1}{F_2}$                                                                                                                                       & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{14}$     & \begin{tabular}[c]{@{}l@{}}Perimeter \\ ratio of \\ diameter\end{tabular}                            & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/pd.png}         & $F_{14} = \frac{F_5}{F_1}$                                                                                                                                       & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{15}$     & \begin{tabular}[c]{@{}l@{}}Perimeter \\ ratio of\\ physiological \\ length\end{tabular}              & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/pl.png}         & $F_{15} = \frac{F_5}{F_2}$                                                                                                                                       & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{16}$     & \begin{tabular}[c]{@{}l@{}}Perimeter \\ ratio of\\ physiological \\ length \\ and width\end{tabular} & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/plw.png}        & $F_{16} = \frac{F_5}{F_2 * F_3}$                                                                                                                                 & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{17}$     & \begin{tabular}[c]{@{}l@{}}Perimeter \\ convexity\end{tabular}                                       & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/p_con.png}      & $F_{17} = \frac{\text{Perimeter of convex hull}}{F_5}$                                                                                                           & [0,$\infty$]  &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_{18}$     & \begin{tabular}[c]{@{}l@{}}Area \\ convexity\end{tabular}                                            & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/a_c1.png}       & $F_{18} = \frac{(\text{Area of convex hull}-F_4)}{F_4}$                                                                                                          & [0,$\infty$]  &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_{19}$     & \begin{tabular}[c]{@{}l@{}}Area ratio \\ of convexity\end{tabular}                                   & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/a_c2.png}       & $F_{19} = \frac{F_4}{\text{Area of convex hull}}$                                                                                                                & [0,$\infty$]  &                          & OpenCV                                                        \\
+                                                                      &                                                            & $F_{20}$     & \begin{tabular}[c]{@{}l@{}}Equivalent \\ diameter\end{tabular}                                       & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/eq_d.png}       & $F_{20} = \sqrt{\frac{4*F_4}{\pi}}$                                                                                                                              & [0,$\infty$]  &                          & numpy                                                         \\
+                                                                      &                                                            & $F_{21}$     & \begin{tabular}[c]{@{}l@{}}Number of \\ convex points\end{tabular}                                   & \centering\includegraphics[width=\linewidth, height=15mm]{./Figures/convex.png}     & \begin{tabular}[c]{@{}l@{}}$F_{21} =  \text{Number of vetices} $\\ $\text{of the convexHull}$\end{tabular}                                                       & [0,$\infty$]  &                          & OpenCV                                                        \\
+\multirow{4}{*}{\begin{tabular}[c]{@{}l@{}}Gray\\ scale\end{tabular}} & \multirow{4}{*}{Texture}                                   & $F_{22}$     & Contrast                                                                                             &                                                                                     & $\frac{\sum_{a=1}^{columns}\sum_{b=1}^{rows}(a-b)^2 h(a,b)}{\text{Number of gray levels}-1}$                                                                     & [0,$\infty$]  & \multirow{4}{*}{Python}  & \multirow{4}{*}{mahotas}                                      \\
+                                                                      &                                                            & $F_{23}$     & Entropy                                                                                              &                                                                                     & $-\sum_{a=1}^{columns}\sum_{b=1}^{rows}h(a,b)log_2(h(a,b))$                                                                                                      & [-$\infty$,0] &                          &                                                               \\
+                                                                      &                                                            & $F_{24}$     & Correlation                                                                                          &                                                                                     & $\frac{\sum_{a=1}^{columns}\sum_{b=1}^{rows}(ab)h(a,b)-\mu_{x}\mu _{y}}{\sigma _{x}\sigma _{y}}$                                                                 & [$-1$,1]      &                          &                                                               \\
+                                                                      &                                                            & $F_{25}$     & \begin{tabular}[c]{@{}l@{}}Inverse \\ difference \\ moments\end{tabular}                             &                                                                                     & $\sum_{a=1}^{columns}\sum_{b=1}^{rows}\frac{h(a,b)}{(a-b)^2}$                                                                                                    & [0,$\infty$]  &                          &                                                               \\
+\multirow{6}{*}{Color}                                                & \multirow{6}{*}{Color}                                     & $F_{26}$     & \begin{tabular}[c]{@{}l@{}}Mean red \\ intensity value\end{tabular}                                  &                                                                                     & $F_{26} = \frac{\parbox{15em}{Total intensity value of red\\ channel of the image pixels}}{\parbox{15em}{Total intensity value of the image}}$                                     & [0,$\infty$]  & \multirow{6}{*}{Python}  & \multirow{6}{*}{numpy}                                        \\
+                                                                      &                                                            & $F_{27}$     & \begin{tabular}[c]{@{}l@{}}Mean blue \\ intensity value\end{tabular}                                 &                                                                                     & $F_{27} = \frac{\parbox{15em}{Total intensity value of blue\\ channel of the image pixels}}{\parbox{15em}{Total intensity value of the image}}$                                    & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{28}$     & \begin{tabular}[c]{@{}l@{}}Mean green \\ intensity value\end{tabular}                                &                                                                                     & $F_{28} = \frac{\parbox{15em}{Total intensity value of green\\ channel of the image pixels}}{\parbox{15em}{Total intensity value of the image}}$                                   & [0,$\infty$]  &                          &                                                               \\                                                                      &                                                            & $F_{29}$     & \begin{tabular}[c]{@{}l@{}}Standard \\ deviation \\ of red\\ intensity value\end{tabular}            &                                                                                     &    \begin{tabular}[c]{@{}l@{}}$F_{29} = \frac{\sqrt{\sum_{j=0}^{h}\bigg(\parbox{3em}{Red \\channel\\ intensity}_j - \parbox{3em}{Red \\mean\\ value}\bigg)^2}}{\text{Total intensity value of the image}}$;\\ $\text{where }h \text{ is number of pixels}$\end{tabular}    & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{30}$     & \begin{tabular}[c]{@{}l@{}}Standard \\ deviation \\ of blue\\ intensity value\end{tabular}           &                                                                                     & \begin{tabular}[c]{@{}l@{}}$F_{30} = \frac{\sqrt{\sum_{j=0}^{h}\bigg(\parbox{3em}{Blue \\channel\\ intensity}_j - \parbox{3em}{Blue \\mean\\ value}\bigg)^2}}{\text{Total intensity value of the image}}$;\\ $\text{where }h \text{ is number of pixels}$\end{tabular}   & [0,$\infty$]  &                          &                                                               \\
+                                                                      &                                                            & $F_{31}$     & \begin{tabular}[c]{@{}l@{}}Standard \\ deviation of \\ green \\ intensity value\end{tabular}         &                                                                                     & \begin{tabular}[c]{@{}l@{}}$F_{31} = \frac{\sqrt{\sum_{j=0}^{h}\bigg(\parbox{3em}{Green \\channel\\ intensity}_j - \parbox{3em}{Green \\mean\\ value}\bigg)^2}}{\text{Total intensity value of the image}}$;\\ $\text{where }h \text{ is number of pixels}$\end{tabular}  & [0,$\infty$]  &                          &                                                               \\  
+        &                                                               \\
+\multirow{12}{*}{Binary}                                              & \multirow{12}{*}{$\text{Scagnostics}$}                              & $F_{sc1}$     & Outlying                                                                                             &                                                                                     & $F_{sc1} = \frac{\text{Total length of edges adjacent to outlying points}}{\text{Total edge length of minimum spanning tree}}$                                                                                                                                                                                                                                                                                                                                                                                                                                    & [0,1]         & \multirow{12}{*}{R}      & \multirow{12}{*}{binostics}                                   \\        
+                                                                      &                                                            & $F_{sc2}$    & Skewed                                                                                               &                                                                                     & $F_{sc2} = 1-\text{weight}*(1-qu_{skew})$ & [0,1]         &                          &                                                               \\
+                                                                      &                                                            & $F_{sc3}$    & Sparse                                                                                               &                                                                                     & \begin{tabular}[c]{@{}l@{}}$F_{sc3} = \text{weight} * \text{90 th percentile}$ \\ of the distribution of edge lengths in \\ the minimum spanning tree\\ $\text{where weight } = 0.7 + \frac{0.3}{1 + \text{Number of vertex}^2}$\end{tabular}                                                                                                                                                                                                                                                                                                                      & [0,1]         &                          &                                                               \\                                                                      
+                                                                      &                                                            & $F_{sc4}$    & Clumpy                                                                                               &                                                                                     & $F_{sc4} = max_j[1-\frac{max_k[length(e_k)]}{length(e_j)}]$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       & [0,1]         &                          &                                                               \\        
+                                                                      &                                                            & $F_{sc5}$    & Striated                                                                                             &                                                                                     & \begin{tabular}[c]{@{}l@{}}$F_{sc5} = \frac{1}{|Ve|}\sum_{\nu \in Ve^{(2)}}^{}I(\cos\theta_{e(\nu,a)e(\nu,b)}<-0.75)$\\ where $Ve^{(2)} \subseteq Ve$ \\and $I()$ be an indicator function\end{tabular}                                                                                                                                                                                                                                                                                                                                                             & [0,1]         &                          &                                                               \\        
+                                                                      &                                                            & $F_{sc6}$    & Convex                                                                                               &                                                                                     & \begin{tabular}[c]{@{}l@{}}$F_{sc6} = \text{weight}*\frac{\text{Area of alpha hull}}{\text{Area of convex hull}}$\\ $\text{where weight } = 0.7 + \frac{0.3}{1 + \text{Number of vertex}^2}$\end{tabular}                                                                                                                                                                                                                                                                                                                                                         & [0,1]         &                          &                                                               \\        
+                                                                      &                                                            & $F_{sc7}$    & Skinny                                                                                               &                                                                                     & $F_{sc7} = 1- \frac{\sqrt{4*\pi*\text{Area of alpha hull}}}{\text{Perimeter of alpha hull}}$                                                                                                                                                                                                                                                                                                                                                                                                                                                                      & [0,1]         &                          &                                                               \\        
+                                                                      &                                                            & $F_{sc8}$    & Stringy                                                                                              &                                                                                     & \begin{tabular}[c]{@{}l@{}}$F_{sc8} = \frac{|Ve^{(2)}|}{|Ve| - |Ve^{(1)}|}$\\ $Ve$ is the number of vertices\end{tabular}                                                                                                                                                                                                                                                                                                                                                                                                                                         & [0,1]         &                          &                                                               \\        
+                                                                      &                                                            & $F_{sc9}$    & Monotonic                                                                                            &                                                                                     & $F_{sc9} = r^2_{Spearman}$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        & [0,1]         &                          &                                                               \\
+                                                                      &                                                            & $F_{32}$     & \begin{tabular}[c]{@{}l@{}}Number of\\ minimum points\end{tabular}                                   &                                                                                     & $F_{32} =  \text{Number of global minimum points}$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                & [0,$\infty$]  &                          &                                                               \\                                                                                                                 &                                                            & $F_{33}$     & \begin{tabular}[c]{@{}l@{}}Number of\\ maximum points\end{tabular}                                   &                                                                                     & $F_{33} =  \text{Number of global maximum points}$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           com     & [0,$\infty$]  &                          &                                                               \\ 
+                                                                      &                                                            & $F_{34}$     & \begin{tabular}[c]{@{}l@{}}Correlation of\\ cartesian contour\end{tabular}                           &                                                                                     & $F_{34} =  \frac{\sum_{i=0}^{m}(x_i - \overline{\rm x})(y_i - \overline{\rm y})}{\sqrt{\sum_{i=0}^{m} (x_i - \overline{\rm x})^2 (y_i - \overline{\rm y})^2}}$                                                                                                                                                                                                                                                                                                                                                                                                    & [$-1$,1]      &                          &                                                               \\ \hline                                                                      
+\caption{Definitions of features}
+\label{tab:table1}\\
+\end{longtable}
+
+
+## Classification framework
+
+|       Our algorithm works as a hierarchical classification system. The hierarchy contains 3 levels. The first level classifies images according to the shape. The second level classifies according to the edge types. The bottom level classifies the plant species. If we use species names rather than hierarchical classification, it is difficult to manage and occur class imbalance problem due to large number of class labels. In order to develop hierarchical system we explore actual plant image repository: "Ayurvedic Medicinal Plants of Sri Lanka" (\url{http://www.instituteofayurveda.org/plants/}) which describes about most commonly used medicinal plants for practice of Ayurveda in Sri Lanka. This website was created as the result of the project implemented by Barberyn Ayurveda resort and University of Ruhuna. The website was updated on 11th May 2017. Our pilot study was based on this database.
+
+
+|       We investigate 471 medicinal leaves in this repository. By investigating leaf images of each medicinal plant, we recorded the physical appearances (morphological characteristics) of the leaf. Rather than adding variables that regarded to physical appearances, we recorded sinhala name (local name), family name, and scientific name as well. There were 22 variables with the primary key (unique) as "Id". There were 18 variables that described about physical appearances of the medicinal leaf images such as leaf arrangement, shape, edge type, apex, base etc.  
+
+
+
+
+
+### Exploratory Data Analysis of Ruhuna Dataset
+
+|       In this section, we present Exploratory Data Analysis to get an idea about the common morphological features of leaves.
+
+```{r, echo=FALSE, out.width="50%", fig.align='center',fig.cap="\\label{rplot1}Composition of sample of ruhuna dataset by arrangement of leaves"}
+knitr::include_graphics(here::here("Figures","Ruhuna","plot1.png"))
+``` 
+
+
+|       According to the Figure \ref{rplot1}, most of the leaves are arranged in Simple arrangement. Therefore further analysis, we selected the leaves that have simple arrangement.	
+
+\begin{table}[!ht]
+\centering
+\resizebox{.7\textwidth}{!}{%
+\begin{tabular}{lccccc}
+\hline
+\multicolumn{1}{c}{\multirow{2}{*}{Shape label}}                                                                  & \multicolumn{4}{c}{Edge type}                                                                                                                                                                                                                                     & \multirow{2}{*}{\begin{tabular}[c]{@{}c@{}}Row total\\ (\%)\end{tabular}} \\
+\multicolumn{1}{c}{}                                                                                              & \multicolumn{1}{l}{Smooth}                                       & \multicolumn{1}{l}{Tooth}                                      & \multicolumn{1}{l}{Lobed}                                      & \multicolumn{1}{l}{Crenate}                                  &                                                                           \\ \hline
+\begin{tabular}[c]{@{}l@{}}Diamond\\ \quad Row \%
+  \\  \quad Column \%\\  \quad Total \%\end{tabular}         & \begin{tabular}[c]{@{}c@{}}167\\ 77.0\\ 66.0\\ 46.5\end{tabular} & \begin{tabular}[c]{@{}c@{}}27\\ 12.4\\ 44.3\\ 7.5\end{tabular} & \begin{tabular}[c]{@{}c@{}}22\\ 10.1\\ 55.0\\ 6.1\end{tabular} & \begin{tabular}[c]{@{}c@{}}1\\ 0.5\\ 20.0\\ 0.3\end{tabular} & \begin{tabular}[c]{@{}c@{}}217\\ (60.4)\end{tabular}                      \\
+\begin{tabular}[c]{@{}l@{}}Heart\\ \quad Row \%
+  \\  \quad Column \%\\  \quad Total \% \\  \multicolumn{1}{r}{Total \%}\end{tabular}             & \begin{tabular}[c]{@{}c@{}}26\\ 56.5\\ 10.3\\ 7.2\end{tabular}   & \begin{tabular}[c]{@{}c@{}}14\\ 30.4\\ 23.0\\ 3.9\end{tabular} & \begin{tabular}[c]{@{}c@{}}6\\ 13.0\\ 15.0\\ 1.0\end{tabular}  & \begin{tabular}[c]{@{}c@{}}0\\ 0.0\\ 0.0\\ 0.0\end{tabular}  & \begin{tabular}[c]{@{}c@{}}46\\ (12.8)\end{tabular}                       \\
+\begin{tabular}[c]{@{}l@{}}Needle\\ \quad Row \%
+  \\  \quad Column \%\\  \quad Total \%\end{tabular}            & \begin{tabular}[c]{@{}c@{}}21\\ 100\\ 8.3\\ 5.8\end{tabular}     & \begin{tabular}[c]{@{}c@{}}0\\ 0.0\\ 0.0\\ 0.0\end{tabular}    & \begin{tabular}[c]{@{}c@{}}0\\ 0.0\\ 0.0\\ 0.0\end{tabular}    & \begin{tabular}[c]{@{}c@{}}0\\ 0.0\\ 0.0\\ 0.0\end{tabular}  & \begin{tabular}[c]{@{}c@{}}21\\ (5.8)\end{tabular}                        \\
+\begin{tabular}[c]{@{}l@{}}Round\\ \quad Row \%
+  \\  \quad Column \%\\  \quad Total \%\end{tabular}             & \begin{tabular}[c]{@{}c@{}}5\\ 50\\ 2.0\\ 1.4\end{tabular}       & \begin{tabular}[c]{@{}c@{}}3\\ 30\\ 4.9\\ 0.8\end{tabular}     & \begin{tabular}[c]{@{}c@{}}1\\ 10\\ 2.5\\ 0.3\end{tabular}     & \begin{tabular}[c]{@{}c@{}}1\\ 10\\ 20\\ 0.3\end{tabular}    & \begin{tabular}[c]{@{}c@{}}10\\ (2.8)\end{tabular}                        \\
+\begin{tabular}[c]{@{}l@{}}Simple round\\ \quad Row \%
+  \\  \quad Column \%\\  \quad Total \%\end{tabular}      & \begin{tabular}[c]{@{}c@{}}31\\ 52.5\\ 12.3\\ 8.6\end{tabular}   & \begin{tabular}[c]{@{}c@{}}14\\ 23.7\\ 23.0\\ 3.9\end{tabular} & \begin{tabular}[c]{@{}c@{}}11\\ 18.6\\ 27.5\\ 3.1\end{tabular} & \begin{tabular}[c]{@{}c@{}}3\\ 5.1\\ 60\\ 0.8\end{tabular}   & \begin{tabular}[c]{@{}c@{}}59\\ (16.4)\end{tabular}                       \\
+\begin{tabular}[c]{@{}l@{}}Scale-like shaped\\ \quad Row \%
+  \\  \quad Column \%\\  \quad Total \%\end{tabular} & \begin{tabular}[c]{@{}c@{}}3\\ 50\\ 1.2\\ 0.8\end{tabular}       & \begin{tabular}[c]{@{}c@{}}3\\ 50\\ 4.9\\ 0.8\end{tabular}     & \begin{tabular}[c]{@{}c@{}}0\\ 0.0\\ 0.0\\ 0.0\end{tabular}    & \begin{tabular}[c]{@{}c@{}}0\\ 0.0\\ 0.0\\ 0.0\end{tabular}  & \begin{tabular}[c]{@{}c@{}}6\\ (1.7)\end{tabular}                         \\
+\begin{tabular}[c]{@{}l@{}}Column total\\ \quad(\%)\end{tabular}                                               & \begin{tabular}[c]{@{}c@{}}253\\ (70.5)\end{tabular}             & \begin{tabular}[c]{@{}c@{}}61\\ (17.0)\end{tabular}            & \begin{tabular}[c]{@{}c@{}}40\\ (11.1)\end{tabular}            & \begin{tabular}[c]{@{}c@{}}5\\ (1.4)\end{tabular}            & \begin{tabular}[c]{@{}c@{}}359\\ (100)\end{tabular}                       \\ \hline
+\end{tabular}%
+}
+\caption{Table of ruhuna dataset}
+\label{tab:myruhutable}
+\end{table}
+
+
+
+|       According to Table \ref{tab:myruhutable}, most common shapes of the leaves are (i) Diamond, (ii) Simple round, (iii) Heart, (iv) Needle, and (v) Round. Therefore we used these common 5 leaf shapes as the first level of the hierarchy.
+
+|       According to Table \ref{tab:myruhutable}, most of the leaves have smooth edges. Based on the results of the study we identify 4 common edge types as (i) Smooth, (ii) Toothed, (iii) Lobed, and (iv) Crenate.
+
+```{r, echo=FALSE, out.width="70%", fig.align='center',fig.cap="\\label{pic}Common arrangments, shape, and edge types"}
+
+knitr::include_graphics(here::here("Figures","pic.png"))
+``` 	    
+
+
+|       As seen in Table \ref{tab:myruhutable}, most of diamond, heart, round, needle, and simple round shaped leaves have Smooth edges. All of the needle shaped leaves have smooth edges. There are no crenate edged heart shaped leaves. Furthermore, diamond, round, and simple round shaped leaves have smooth, toothed, lobed, and crenate edges. We used edge types to go to the bottom level of the hierarchy.
+
+|       By conducting the study, we identified that what are the common shapes and edge types of the medicinal leaves in Sri Lanka. We proceed with 5 main shapes as diamond, heart, round, needle, and simple round. By using main 4 edge types as smooth, toothed, lobed, and crenate, we go to the bottom level of the hierarchy. Based on this dataset hierarchy (see Figure \ref{fig:test}) is created. Based on these information we develop a hierarchical structure to classify the leaf images by identifying main features. The general hierarchical structure is shown in Figure \ref{dia}.
+
+
+```{r, echo=FALSE, out.width="70%", fig.align='center',fig.cap="\\label{dia}General hierarchical structure"}
+
+knitr::include_graphics(here::here("Figures","Ruhuna","diagram.png"))
+``` 	    
+
+# Results
+
+## Experiments
+
+|       In our study, we conducted two experiments as shown in Figure \ref{exp1} and Figure \ref{exp2}. Furthermore, most of studies in literature considered shape features only, to explore if adding new features help in improving accuracy we arrange the experiments in two ways as; (i) Using all the feature categories (shape, color, texture, and scagnostic features), and (ii) Using only with shape features.
+
+
+### Experiment 1
+
+|       As shown in Figure \ref{exp1}, experiment 1 was designed by using 80\% of training and 20\% of test set of the same dataset separately. Experiment 1 was conducted in two ways. First the experiment 1 was conducted by considering all the features (shape, color, texture, and scagnostic features) as inputs to the algorithms. Second the experiment 1 is conducted by considering only with the shape features as input to the algorithms. Our algorithm works as a hierarchical classification system. The hierarchy contains 3 levels. The first level (H1) classifies images according to the shape. The second level (H2) classifies according to the edge types. The bottom level (H3) classifies the plant species. Flavia, Swedish and Kaggle datasets used to evaluate only the first level of the hierarchy i:e: classification is based only with the shapes of the leaves. Whereas Actual dataset is analyzed from top to bottom level of the hierarchy and recorded classification accuracy of each level. 
+
+|       The following Table \ref{classification shape} shows that the shape-wise (H1) and overall classification accuracy in experiment 1 which means that out of sample accuracy in H1 (see Figure \ref{H1}), with different algorithms.
+
+```{r, echo=FALSE, out.width="50%", fig.align='center',fig.cap="\\label{H1}Level 1 of the hierarchy (H1)"}
+
+knitr::include_graphics(here::here("Figures","H1.png"))
+``` 	    
+
+
+\begin{table}[!ht]
+\centering\resizebox{0.8\textwidth}{!}{
+\begin{tabular}{lcccccc}
+\hline
+Dataset                                                                    & \multicolumn{1}{l}{Diamond} & \multicolumn{1}{l}{Simple Round} & \multicolumn{1}{l}{Needle} & \multicolumn{1}{l}{Heart Shape} & \multicolumn{1}{l}{Round} & \multicolumn{1}{l}{\begin{tabular}[c]{@{}l@{}}Overall \\ Classification \\ Accuracy\end{tabular}} \\ \hline
+\textbf{Actual}                                                            & \multicolumn{1}{l}{}        & \multicolumn{1}{l}{}             & \multicolumn{1}{l}{}       & \multicolumn{1}{l}{}            & \multicolumn{1}{l}{}      & \multicolumn{1}{l}{}                                                                              \\
+Random Forest                                                              & 0.94                        & \textbf{1.00}                   & \textbf{1.00}             & \textbf{1.00}                  & \textbf{1.00}            & \textbf{0.97}                                                                                     \\
+\begin{tabular}[c]{@{}l@{}}Extreme Gradient \\      Boosting\end{tabular}  & 0.94                        & 0.95                             & \textbf{1.00}             & 0.96                            & \textbf{1.00}            & 0.95                                                                                              \\
+Gradient Boosting                                                          & \textbf{0.96}               & 0.96                             & \textbf{1.00}             & \textbf{1.00}                  & \textbf{1.00}            & \textbf{0.97}                                                                                     \\
+\textbf{Flavia}                                                            &                             &                                  &                            &                                 &                           &                                                                                                   \\
+Random Forest                                                              & 0.98                        & \textbf{0.97}                    & 0.96                       & 0.97                            & \textbf{1.00}            & \textbf{0.98}                                                                                     \\
+\begin{tabular}[c]{@{}l@{}}Extreme Gradient \\      Boosting\end{tabular}  & \textbf{0.99}               & 0.95                             & 0.93                       & 0.98                            & \textbf{1.00}            & 0.97                                                                                              \\
+Gradient Boosting                                                          & 0.98                        & 0.96                             & \textbf{1.00}             & \textbf{1.00}                  & \textbf{1.00}            & \textbf{0.98}                                                                                     \\
+\textbf{Swedish}                                                           &                             &                                  &                            &                                 &                           &                                                                                                   \\
+Random Forest                                                              & 0.99                        & \textbf{1.00}                   & \textbf{1.00}             & \textbf{0.95}                   & \textbf{1.00}            & \textbf{0.98}                                                                                     \\
+\begin{tabular}[c]{@{}l@{}}Extreme Gradient \\       Boosting\end{tabular} & \textbf{1.00}              & \textbf{1.00}                   & \textbf{1.00}             & 0.88                            & 0.92                      & 0.97                                                                                              \\
+Gradient Boosting                                                          & 0.99                        & 0.98                             & 0.96                       & 0.86                            & \textbf{1.00}            & 0.96                                                                                              \\
+\textbf{Kaggle}                                                            &                             &                                  &                            &                                 &                           &                                                                                                   \\
+Random Forest                                                              & \textbf{0.76}               & \textbf{0.69}                    & -                          & 0.82                            & \textbf{0.77}             & \textbf{0.74}                                                                                     \\
+\begin{tabular}[c]{@{}l@{}}Extreme Gradient \\       Boosting\end{tabular} & 0.75                        & 0.68                             & $-$                          & 0.70                            & 0.70                      & 0.71                                                                                              \\
+Gradient Boosting                                                          & 0.74                       & 0.68                             & $-$                          & \textbf{0.92}                   & 0.66                     & 0.71                                            \\\hline                                                 
+\end{tabular}}
+\caption{Shape-wise (H1) and overall classification accuracy (Training and test sets are from the same dataset)}
+\label{classification shape}
+\end{table}
+
+
+|       According to the results shown in Table \ref{classification shape}, Random Forest algorithm works extremely well in classifying simple round, needle, round, and heart shape leaves. The out-of-sample accuracy is 100\%. However, Random Forest and Gradient Boosting have same overall classification accuracy as 97\%. 
+
+|       When consider the shape-wise (H1) accuracy of Flavia dataset, Gradient Boosting algorithm is the best. Because feeding the Flavia dataset to Gradient Boosting, the algorithm needle, heart, and round shape leaves are correctly classified with 100\% accuracy. But Random Forest and Gradient Boosting have same overall classification accuracy as 98\%.
+
+|       When consider the shape-wise (H1) accuracy of Swedish dataset, Random Forest algorithm is the best. Because feeding the Swedish dataset to Random Forest, the algorithm simple round, needle, heart, and round shape leaves are correctly classified with higher level of accuracy than other two algorithms. Random Forest also have the highest overall classification accuracy as 98\%.
+
+|       When consider the shape-wise (H1) accuracy of Kaggle dataset, Random Forest algorithm is the best. Because feeding the Kaggle dataset to Random Forest, the algorithm diamond, simple round, heart, and round shape leaves correctly classified with higher level of accuracy than other two algorithms. Random Forest also have the highest overall classification accuracy as 74\%.
+
+|       With all the features (with all feature categories), out of sample overall classification accuracy in H1 is higher for Random Forest than Extreme Gradient Boosting and Gradient Boosting of all the datasets. 
+
+
+|       As identified in the first phase of experiment 1, we used Random Forest to go to the bottom level of the hierarchy. Because Random Forest perform well in the first phase of experiment 1 with high value of overall classification accuracy.
+
+
+\indent The following Table \ref{classification species give shape} shows that the edge-wise (H2) and overall classification accuracy in experiment 1 which means that out of sample accuracy in H2 with Random Forest algorithm.
+
+
+```{r, echo=FALSE, out.width="50%", fig.align='center',fig.cap="\\label{H2d}Level 2 hierarchy (H2) of diamond shaped leaves"}
+
+knitr::include_graphics(here::here("Figures","H2_d.png"))
+``` 	    
+
+
+```{r, echo=FALSE, out.width="50%", fig.align='center',fig.cap="\\label{H2s}Level 2 hierarchy (H2) of simple round shaped leaves"}
+
+knitr::include_graphics(here::here("Figures","H2_s.png"))
+``` 	    
+
+
+\begin{table}[!ht]
+\centering \resizebox{1.0\textwidth}{!}{
+\begin{tabular}{llllllllll}
+\hline
+\multirow{2}{*}{Dataset} & \multicolumn{4}{c}{Diamond}                                                                                                                                  & \multicolumn{5}{c}{Simple Round}                                                                                                                                                         \\ \cline{2-10} 
+                         & Smooth                   & Toothed                  & Crenate                 & \begin{tabular}[c]{@{}l@{}}Overall \\ Classification\\ Accuracy\end{tabular} & Smooth                   & Toothed                  & Lobed                    & Crenate                  & \begin{tabular}[c]{@{}l@{}}Overall \\ Classification\\ Accuracy\end{tabular} \\ \hline
+\textbf{Actual}          &                          &                          &                         &                                                                              &                          &                          &                          &                          &                                                                              \\
+Random Forest            & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{0.4} & \multicolumn{1}{c}{0.97}                                                     & \multicolumn{1}{c}{0.94} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{0.97}                                                     \\ \hline
+\end{tabular}}
+\caption{Edge-wise (H2) and overall classification accuracy (Training and test sets are from the Actual dataset)}
+\label{classification edge}
+\end{table}
+
+
+
+|       When consider the edge-wise (H2) accuracy of actual dataset for diamond and simple round leaves, Random Forest has the overall classification accuracy of 97\% for each. There is 100\% edge wise accuracy in smooth, and toothed edged diamond shaped leaves. But there is 100\% edge wise accuracy in toothed, lobed, and crenate edged simple round shaped leaves.
+
+
+|       The following Table \ref{classification species give shape} shows that the species-wise (H3) and overall classification accuracy of heart and needle shaped leaves in experiment 1 which means that out of sample accuracy in H3 with Random Forest algorithm of heart and needle shaped leaves.
+
+
+```{r, echo=FALSE, out.width="50%", fig.align='center',fig.cap="\\label{H3n}Level 3 hierarchy (H3) of needle shaped leaves"}
+
+knitr::include_graphics(here::here("Figures","H3_n.png"))
+``` 	
+
+```{r, echo=FALSE, out.width="50%", fig.align='center',fig.cap="\\label{H3h}Level 3 hierarchy (H3) of heart shaped leaves"}
+
+knitr::include_graphics(here::here("Figures","H3_h.png"))
+``` 	
+
+
+\begin{table}[!ht]
+\centering \resizebox{1.0\textwidth}{!}{
+\begin{tabular}{lllllllll}
+\hline
+\multicolumn{1}{c}{\multirow{2}{*}{Dataset}} & \multicolumn{4}{c}{Needle}                                                                                                                                    & \multicolumn{4}{c}{Heart Shape}                                                                                                                               \\ \cline{2-9} 
+\multicolumn{1}{c}{}                         & Belathana                & Hathawariya              & Iramusu                  & \begin{tabular}[c]{@{}l@{}}Overall \\ Classification\\ Accuracy\end{tabular} & Bulath                   & Gammiris                 & Rasakida                 & \begin{tabular}[c]{@{}l@{}}Overall \\ Classification\\ Accuracy\end{tabular} \\ \hline
+\textbf{Actual}                              &                          &                          &                          &                                                                              &                          &                          &                          &                                                                              \\
+Random Forest                                & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00}                                                     & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00}                                                     \\ \hline
+\end{tabular}}
+\caption{Species-wise (H3) and overall classification accuracy given the shape (Training and test sets are from the Actual dataset)}
+\label{classification species give shape}
+\end{table}
+
+
+|       When consider the species-wise (H3) accuracy of actual dataset for heart and needle shaped leaves, Random Forest has the overall classification accuracy of 100\% for each. There is 100\% species wise accuracy in all the species of needle and heart shaped leaves. 
+
+|       The following Table \ref{classification edge given shape} shows that the species-wise (H3) and overall classification accuracy in experiment 1 which means that out of sample accuracy in H3 with Random Forest algorithm.
+
+```{r, echo=FALSE, out.width="50%", fig.align='center',fig.cap="\\label{H3ds}Level 3 hierarchy (H3) of diamond shaped smooth edged leaves"}
+
+knitr::include_graphics(here::here("Figures","H1_ds.png"))
+``` 
+
+```{r, echo=FALSE, out.width="50%", fig.align='center',fig.cap="\\label{H1ss}Level 3 hierarchy (H3) of simple round shaped smooth edged leaves"}
+
+knitr::include_graphics(here::here("Figures","H1_ss.png"))
+``` 
+
+```{r, echo=FALSE, out.width="50%", fig.align='center',fig.cap="\\label{H1sc}Level 3 hierarchy (H3) of simple round shaped crenate edged leaves"}
+
+knitr::include_graphics(here::here("Figures","H1_sc.png"))
+``` 
+
+```{r, echo=FALSE, out.width="50%", fig.align='center',fig.cap="\\label{H1sl}Level 3 hierarchy (H3) of simple round shaped lobed edged leaves"}
+
+knitr::include_graphics(here::here("Figures","H1_sl.png"))
+``` 
+	    
+
+|       When consider the species-wise (H3) accuracy of actual dataset for all edge types in diamond and simple round leaves, Random Forest has the overall classification accuracy of 100\% for each. There is 100\% species-wise accuracy in all the species of diamond and simple round shaped leaves.  
+
+
+
+\begin{table}[!ht]
+\centering \resizebox*{1.0\textwidth}{0.15\paperheight}{
+\begin{tabular}{cclllllllllllcllllllllllll}
+\hline
+\multirow{3}{*}{Dataset}            & \multicolumn{12}{c}{Diamond}                                                                                                                                                                                                                                                                                                                                                             & \multicolumn{13}{c}{Simple Round}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 \\ \cline{2-26} 
+                                    & \multicolumn{12}{c}{Smooth}                                                                                                                                                                                                                                                                                                                                                              & \multicolumn{5}{c}{Smooth}                                                                                                                                                                                             & \multicolumn{4}{c}{Lobed}                                                                                                                                                                 & \multicolumn{4}{c}{Crenate}                                                                                                                                  \\ \cline{2-26} 
+                                    & \multicolumn{1}{l}{Adathoda} & Beli                     & Bilin                    & Delum                   & Iguru                    & Kabaranga                & Kurudu                   & Mukunuwenna              & Rathmal                  & Thebu                    & Thora                    & \begin{tabular}[c]{@{}l@{}}Overall \\ Classification\\ Accuracy\end{tabular} & \multicolumn{1}{l}{Dehi} & Murunga                  & \begin{tabular}[c]{@{}l@{}}Nil \\ katarolu\end{tabular} & Polpala                  & \begin{tabular}[c]{@{}l@{}}Overall\\ Classification\\ Accuracy\end{tabular} & Passion                  & Penela                   & \begin{tabular}[c]{@{}l@{}}Thel\\ eradu\end{tabular} & \begin{tabular}[c]{@{}l@{}}Overall \\ Classification\\ Accuracy\end{tabular} & Akkapana                 & Iriweriya                & Weldodam                 & \begin{tabular}[c]{@{}l@{}}Overall\\ Classification\\ Accuracy\end{tabular} \\ \hline
+\multicolumn{1}{l}{\textbf{Actual}} & \multicolumn{1}{l}{}         &                          &                          &                         &                          &                          &                          &                          &                          &                          &                          &                                                                              & \multicolumn{1}{l}{}     &                          &                                                         &                          &                                                                             &                          &                          &                                                      &                                                                              &                          &                          &                          &                                                                             \\
+\multicolumn{1}{l}{Random Forest}   & 1.00                         & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{0.5} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{0.43} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{0.88} & \multicolumn{1}{c}{0.50} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{0.88} & \multicolumn{1}{c}{0.87}                                                     & 1.00                     & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00}                                & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00}                                                    & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00}                             & \multicolumn{1}{c}{1.00}                                                     & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00} & \multicolumn{1}{c}{1.00}                                                    \\ \hline
+\end{tabular}}
+\caption{Species-wise (H3) and overall classification accuracy given the edge (Training and test sets are from the Actual dataset)}
+\label{classification edge given shape}
+\end{table}
+
+
+
+|       The following Table \ref{accuracy only shape same} shows that the shape-wise (H1) and overall classification accuracy only with shape features in experiment 1 which means that out of sample accuracy in H1 only with shape features.
+
+
+\begin{table}[!ht]
+\centering\resizebox{0.8\textwidth}{!}{
+\begin{tabular}{llcccccc}
+\hline
+\multicolumn{2}{c}{Dataset}                                                                                 \\ 
+\hline
+\begin{tabular}[c]{@{}l@{}}Training \\ Set\end{tabular} & \begin{tabular}[c]{@{}l@{}}Test \\ Set\end{tabular}                 & \multicolumn{1}{l}{Diamond} & \multicolumn{1}{l}{\begin{tabular}[c]{@{}l@{}}Simple \\ Round\end{tabular}} & \multicolumn{1}{l}{Needle} & \multicolumn{1}{l}{\begin{tabular}[c]{@{}l@{}}Heart \\ shape\end{tabular}} & \multicolumn{1}{l}{Round} & \multicolumn{1}{l}{\begin{tabular}[c]{@{}l@{}}Overall\\ Classification\\ Accuracy\end{tabular}} \\ \hline
+\textbf{Actual}                                         & \textbf{Actual}                                                     &                             &                                                                             &                            &                                                                            &                           &                                                                                                 \\
+                                                        & Random Forest                                                       & 0.89                        & 0.86                                                                        & \textbf{1.00}             & \textbf{1.00}                                                             & 0.86                      & 0.90                                                                                            \\
+                                                        & \begin{tabular}[c]{@{}l@{}}Extreme Gradient\\ Boosting\end{tabular} & 0.92                        & \textbf{0.89}                                                               & 0.97                       & 0.97                                                                       & \textbf{1.00}            & \textbf{0.92}                                                                                   \\
+                                                        & Gradient Boosting                                                   & \textbf{0.93}               & 0.83                                                                        & \textbf{1.00}             & 0.92                                                                       & 0.71                      & 0.90                                                                                            \\
+\textbf{Flavia}                                         & \textbf{Flavia}                                                     & \multicolumn{1}{l}{}        & \multicolumn{1}{l}{}                                                        & \multicolumn{1}{l}{}       & \multicolumn{1}{l}{}                                                       & \multicolumn{1}{l}{}      & \multicolumn{1}{l}{}                                                                            \\
+                                                        & Random Forest                                                       & 0.93                        & \textbf{1.00}                                                              & 0.91                       & 0.97                                                                       & \textbf{1.00}            & \textbf{0.96}                                                                                   \\
+                                                        & \begin{tabular}[c]{@{}l@{}}Extreme Gradient\\ Boosting\end{tabular} & \textbf{0.96}               & 0.96                                                                        & \textbf{1.00}             & 0.96                                                                       & 0.98                      & \textbf{0.96}                                                                                   \\
+                                                        & Gradient Boosting                                                   & 0.94                        & 0.98                                                                        & 0.95                       & \textbf{1.00}                                                             & \textbf{1.00}            & \textbf{0.96}                                                                                   \\
+\textbf{Swedish}                                        & \textbf{Swedish}                                                    & \multicolumn{1}{l}{}        & \multicolumn{1}{l}{}                                                        & \multicolumn{1}{l}{}       & \multicolumn{1}{l}{}                                                       & \multicolumn{1}{l}{}      & \multicolumn{1}{l}{}                                                                            \\
+                                                        & Random Forest                                                       & 0.96                        & \textbf{1.00}                                                              & \textbf{1.00}             & 0.85                                                                       & 0.94                      & 0.95                                                                                            \\
+                                                        & \begin{tabular}[c]{@{}l@{}}Extreme Gradient\\ Boosting\end{tabular} & \textbf{0.99}               & \textbf{1.00}                                                              & \textbf{1.00}            & 0.82                                                                       & \textbf{1.00}            & \textbf{0.97}                                                                                   \\
+                                                        & Gradient Boosting                                                   & 0.95                        & 0.98                                                                        & \textbf{1.00}             & \textbf{1.00}                                                             & 0.92                      & 0.96                                                                                            \\ \hline
+\end{tabular}}
+\caption{Shape-wise (H1) and overall classification accuracy (Training and test sets are from the same datasets: Only with shape features)}
+\label{accuracy only shape same}
+\end{table}
+
+
+
+|       When consider the shape-wise (H1) accuracy of actual dataset, Random Forest algorithm is best. Because feeding the actual dataset to the algorithm needle, and heart shape leaves are correctly classified with 100\% accuracy. But Extreme Gradient Boosting has the highest overall classification accuracy as 92\%. 
+
+|       When consider the shape-wise (H1) accuracy of Flavia dataset, Gradient Boosting algorithm is best. Because feeding the Flavia dataset to Gradient Boosting, the algorithm needle, heart, and round shape leaves are correctly classified with 100\% accuracy. But all of the algorithms have overall classification accuracy as 96\%.
+
+|       When consider the shape-wise (H1) accuracy of Swedish dataset, Extreme Gradient Boosting algorithm is best. Because feeding the Swedish dataset to Gradient Boosting algorithm diamond, simple round, needle, and round shape leaves are correctly classified with 100\% accuracy. Extreme Gradient Boosting also have the highest overall classification accuracy as 97\%.
+
+
+|       Only with the shape features, out of sample overall classification accuracy in H1 is higher for Extreme Gradient Boosting than Random Forest and Gradient Boosting. 
+
+
+### Experiment 2
+
+|       As shown in Figure \ref{exp2}, experiment 2 was designed by using 80\% of training and 20\% of test set of the different datasets. In this experiment we evaluate the generalizability of our algorithm (out of sample accuracy) by cross combining the different datasets. For example: New dataset 1 is created based on 80\% data from Flavia and 20\% data from Kaggle. Experiment 2 was conducted in two ways. First the experiment is conducted by considering all the features as inputs. Second the experiment is conducted by considering only the shape features as inputs. All of datasets used to evaluate only the first level of the hierarchy i:e: classification of leaves according to their shape. 
+
+|       There were 6 new datasets that created by existing datasets as shown in Figure \ref{exp2}.
+
+
+\begin{figure}[!ht]
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=80mm, height=70mm]{./Figures/exp1.png}
+		\caption{\label{exp1}Proportion of training and test set of experiment 1}
+		
+\end{subfigure}	
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=80mm, height=70mm]{./Figures/exp2.png}
+		\caption{\label{exp2}Proportion of training and test set of experiment 2}
+		
+\end{subfigure}	
+
+\caption{}
+	    \end{figure}
+
+
+|       The following Table \ref{accuracy shape new} shows that the shape-wise (H1) and overall classification accuracy in experiment 2 which means that out of sample accuracy in H1 with different algorithms.
+
+\begin{table}[!ht]
+\centering
+\resizebox{.9\textwidth}{!}{
+\begin{tabular}{llcccccc}
+\hline
+\multicolumn{2}{c}{Dataset}                                                                                 \\ 
+\begin{tabular}[c]{@{}l@{}}Training \\ Set\end{tabular} & \begin{tabular}[c]{@{}l@{}}Test \\ Set\end{tabular}                 & \multicolumn{1}{l}{Diamond} & \multicolumn{1}{l}{\begin{tabular}[c]{@{}l@{}}Simple \\ Round\end{tabular}} & \multicolumn{1}{l}{Needle} & \multicolumn{1}{l}{\begin{tabular}[c]{@{}l@{}}Heart \\ shape\end{tabular}} & \multicolumn{1}{l}{Round} & \multicolumn{1}{l}{\begin{tabular}[c]{@{}l@{}}Overall\\ Classification\\ Accuracy\end{tabular}} \\ \hline
+\textbf{Flavia}                                         & \textbf{Actual}                                                     &                             &                                                                             &                            &                                                                            &                           &                                                                                                 \\
+                                                        & Random Forest                                                       & \textbf{0.70}               & 0.28                                                                        & 0.23                       & \textbf{0.04}                                                               & 0.10                      & 0.41                                                                                            \\
+                                                        & \begin{tabular}[c]{@{}l@{}}Extreme Gradient\\ Boosting\end{tabular} & 0.65                        & 0.28                                                                        & \textbf{0.56}              & 0.03                                                                        & \textbf{0.29}             & \textbf{0.43}                                                                                   \\
+                                                        & Gradient Boosting                                                   & 0.63                        & \textbf{0.31}                                                               & 0.45                       & 0.03                                                                        & 0.26                      & 0.42                                                                                            \\
+\textbf{Swedish}                                        & \textbf{Actual}                                                     & \multicolumn{1}{l}{}        & \multicolumn{1}{l}{}                                                        & \multicolumn{1}{l}{}       & \multicolumn{1}{l}{}                                                       & \multicolumn{1}{l}{}      & \multicolumn{1}{l}{}                                                                            \\
+                                                        & Random Forest                                                       & 0.38                        & 0.22                                                                        & 0.06                        & \textbf{0.12}                                                              & 0.39                      & 0.26                                                                                            \\
+                                                        & \begin{tabular}[c]{@{}l@{}}Extreme Gradient\\ Boosting\end{tabular} & 0.40                        & 0.23                                                                        & \textbf{0.18}              & 0.04                                                                        & 0.23                      & 0.25                                                                                            \\
+                                                        & Gradient Boosting                                                   & \textbf{0.50}               & \textbf{0.33}                                                               & 0.11                       & \textbf{0.12}                                                              & \textbf{0.55}             & \textbf{0.36}                                                                                   \\
+\textbf{Swedish}                                        & \textbf{Flavia}                                                     & \multicolumn{1}{l}{}        & \multicolumn{1}{l}{}                                                        & \multicolumn{1}{l}{}       & \multicolumn{1}{l}{}                                                       & \multicolumn{1}{l}{}      & \multicolumn{1}{l}{}                                                                            \\
+                                                        & Random Forest                                                       & 0.29                        & \textbf{0.43}                                                               & 0.46                       & 0.0                                                                        & 0.0                      & 0.27                                                                                            \\
+                                                        & \begin{tabular}[c]{@{}l@{}}Extreme Gradient\\ Boosting\end{tabular} & \textbf{0.42}               & 0.34                                                                        & 0.40                       & 0.01                                                                        & 0.01                       & 0.31                                                                                            \\
+                                                        & Gradient Boosting                                                   & 0.40                        & 0.37                                                                        & \textbf{0.53}              & \textbf{0.12}                                                              & \textbf{0.27}             & \textbf{0.37}                                                                                   \\
+\textbf{Flavia}                                         & \textbf{Swedish}                                                    & \multicolumn{1}{l}{}        & \multicolumn{1}{l}{}                                                        & \multicolumn{1}{l}{}       & \multicolumn{1}{l}{}                                                       & \multicolumn{1}{l}{}      & \multicolumn{1}{l}{}                                                                            \\
+                                                        & Random Forest                                                       & 0.57                        & 0.72                                                                        & 0.03                        & 0.0                                                                        & 0.01                       & 0.39                                                                                            \\
+                                                        & \begin{tabular}[c]{@{}l@{}}Extreme Gradient\\ Boosting\end{tabular} & \textbf{0.58}               & 0.67                                                                        & \textbf{0.13}              & 0.0                                                                       & 0.15                      & \textbf{0.41}                                                                                   \\
+                                                        & Gradient Boosting                                                   & 0.51                        & \textbf{0.79}                                                               & 0.12                       & 0.0                                                                        & \textbf{0.18}             & \textbf{0.41}                                                                                   \\
+\textbf{Flavia}                                         & \textbf{Kaggle}                                                     & \multicolumn{1}{l}{}        & \multicolumn{1}{l}{}                                                        & \multicolumn{1}{l}{}       & \multicolumn{1}{l}{}                                                       & \multicolumn{1}{l}{}      & \multicolumn{1}{l}{}                                                                            \\
+                                                        & Random Forest                                                       & \textbf{0.66}               & 0.39                                                                        & 0.0                        & 0.0                                                                        & 0.17                      & \textbf{0.44}                                                                                   \\
+                                                        & \begin{tabular}[c]{@{}l@{}}Extreme Gradient\\ Boosting\end{tabular} & 0.56                        & \textbf{0.48}                                                               & 0.0                        & 0.0                                                                        & 0.21                      & 0.43                                                                                            \\
+                                                        & Gradient Boosting                                                   & 0.51                        & 0.47                                                                        & 0.0                        & 0.0                                                                        & \textbf{0.25}             & 0.42                                                                                            \\
+\textbf{Swedish}                                        & \textbf{Kaggle}                                                     & \multicolumn{1}{l}{}        & \multicolumn{1}{l}{}                                                        & \multicolumn{1}{l}{}       & \multicolumn{1}{l}{}                                                       & \multicolumn{1}{l}{}      & \multicolumn{1}{l}{}                                                                            \\
+                                                        & Random Forest                                                       & 0.42                        & 0.12                                                                        & 0.0                        & 0.07                                                                        & 0.05                       & 0.24                                                                                            \\
+                                                        & \begin{tabular}[c]{@{}l@{}}Extreme Gradient\\ Boosting\end{tabular} & 0.35                        & 0.12                                                                        & 0.0                        & 0.10                                                                       & \textbf{0.14}             & 0.23                                                                                            \\
+                                                        & Gradient Boosting                                                   & \textbf{0.44}               & \textbf{0.14}                                                               & $-$                          & \textbf{0.14}                                                              & 0.13                      & \textbf{0.27}                                                                                   \\ \hline
+\end{tabular}}
+\caption{Shape-wise (H1) and overall classification accuracy (Training and test sets are from the different datasets)}
+\label{accuracy shape new}
+\end{table}
+
+
+|       When consider the shape-wise (H1) accuracy of new dataset 1, Extreme Gradient Boosting algorithm and Random Forest are best. Because feeding the new dataset 1 to the Random Forest and Extreme Gradient Boosting algorithms diamond, needle, heart, and round shape leaves are correctly classified with higher accuracy. But Extreme Gradient Boosting have same overall classification accuracy of 43\%. 
+
+|       When consider the shape-wise (H1) accuracy of new dataset 2, Gradient Boosting algorithm is best. Because feeding the new dataset 2 to Gradient Boosting, the algorithm diamond, simple round, heart, and round shape leaves are correctly classified with higher level of accuracy than other two algorithms. Gradient Boosting has the highest overall classification accuracy as 36\%.
+
+|       When consider the shape-wise (H1) accuracy of new dataset 3, Gradient Boosting algorithm is best. Because feeding the new dataset 3 to Gradient Boosting algorithm needle, heart, and round shape leaves are correctly classified with higher level of accuracy than other two algorithms. Gradient Boosting also has the highest overall classification accuracy as 37\%.
+
+|       When consider the shape-wise (H1) accuracy of new dataset 4, Gradient Boosting algorithm is best. Because feeding the new dataset 4 to the Gradient Boosting algorithm simple round and round shape leaves correctly classified with higher level of accuracy than other two algorithms. Extreme Gradient Boosting and Gradient Boosting have same overall classification accuracy as 41\%.
+
+|       When consider the shape-wise (H1) accuracy of new dataset 5, Random Forest algorithm is best. Because feeding the new dataset 5 to Random Forest algorithm diamond shape leaves are correctly classified with higher level of accuracy than other two algorithms. Random Forest also has the highest overall classification accuracy as 44\%.
+
+|       When consider the shape-wise accuracy (H1) of new dataset 6, Gradient Boosting algorithm is best. Because feeding the new dataset 6 to Gradient Boosting algorithm diamond, simple round, and heart shape leaves are correctly classified with higher level of accuracy than other two algorithms. Gradient Boosting also has the highest overall classification accuracy as 27\%.
+
+|       With all the features, out of sample overall classification accuracy in H1 is higher for Random Forest than Extreme Gradient Boosting and Gradient Boosting in experiment 2.
+
+
+|       The following Table \ref{accuracy only shape different} shows that the shape-wise (H1) and overall classification accuracy in experiment 2 which means that out of sample accuracy in H1 only with shape features.
+
+\begin{table}[!ht]
+\centering
+\resizebox{.9\textwidth}{!}{
+\begin{tabular}{llcccccc}
+\hline
+\multicolumn{2}{c}{Dataset}                                                                                 \\ 
+\begin{tabular}[c]{@{}l@{}}Training \\ Set\end{tabular} & \begin{tabular}[c]{@{}l@{}}Test \\ Set\end{tabular}                 & \multicolumn{1}{l}{Diamond} & \multicolumn{1}{l}{\begin{tabular}[c]{@{}l@{}}Simple \\ Round\end{tabular}} & \multicolumn{1}{l}{Needle} & \multicolumn{1}{l}{\begin{tabular}[c]{@{}l@{}}Heart \\ shape\end{tabular}} & \multicolumn{1}{l}{Round} & \multicolumn{1}{l}{\begin{tabular}[c]{@{}l@{}}Overall\\ Classification\\ Accuracy\end{tabular}} \\ \hline
+\textbf{Flavia}                                         & \textbf{Actual}                                                     &                             &                                                                             &                            &                                                                            &                           &                                                                                                 \\
+                                                        & Random Forest                                                       & 0.57                        & 0.29                                                                        & 0.81                       & 0.04                                                                        & 0.13                      & 0.42                                                                                            \\
+                                                        & \begin{tabular}[c]{@{}l@{}}Extreme Gradient\\ Boosting\end{tabular} & \textbf{0.65}               & \textbf{0.37}                                                               & 0.85                       & 0.03                                                                        & 0.48                      & \textbf{0.50}                                                                                   \\
+                                                        & Gradient Boosting                                                   & 0.55                        & 0.36                                                                        & \textbf{0.95}              & \textbf{0.05}                                                                & \textbf{0.58}             & 0.49                                                                                            \\
+\textbf{Swedish}                                        & \textbf{Actual}                                                     & \multicolumn{1}{l}{}        & \multicolumn{1}{l}{}                                                        & \multicolumn{1}{l}{}       & \multicolumn{1}{l}{}                                                       & \multicolumn{1}{l}{}      & \multicolumn{1}{l}{}                                                                            \\
+                                                        & Random Forest                                                       & 0.37                        & 0.31                                                                        & \textbf{0.09}               & \textbf{0.10}                                                              & 0.14                      & 0.24                                                                                            \\
+                                                        & \begin{tabular}[c]{@{}l@{}}Extreme Gradient\\ Boosting\end{tabular} & 0.38                        & \textbf{0.35}                                                               & 0.0                        & 0.05                                                                        & 0.08                       & 0.23                                                                                            \\
+                                                        & Gradient Boosting                                                   & \textbf{0.53}               & 0.27                                                                        & 0.03                        & 0.08                                                                        & \textbf{0.39}             & \textbf{0.31}                                                                                   \\
+\textbf{Swedish}                                        & \textbf{Flavia}                                                     & \multicolumn{1}{l}{}        & \multicolumn{1}{l}{}                                                        & \multicolumn{1}{l}{}       & \multicolumn{1}{l}{}                                                       & \multicolumn{1}{l}{}      & \multicolumn{1}{l}{}                                                                            \\
+                                                        & Random Forest                                                       & 0.29                        & \textbf{0.45}                                                               & 0.38                       & 0.0                                                                        & 0.0                       & 0.27                                                                                            \\
+                                                        & \begin{tabular}[c]{@{}l@{}}Extreme Gradient\\ Boosting\end{tabular} & 0.46                        & 0.32                                                                        & \textbf{0.41}              & 0.0                                                                        & 0.06                       & 0.33                                                                                            \\
+                                                        & Gradient Boosting                                                   & \textbf{0.52}               & 0.36                                                                        & 0.27                       & \textbf{0.13}                                                              & \textbf{0.20}             & \textbf{0.38}                                                                                   \\
+\textbf{Flavia}                                         & \textbf{Swedish}                                                    & \multicolumn{1}{l}{}        & \multicolumn{1}{l}{}                                                        & \multicolumn{1}{l}{}       & \multicolumn{1}{l}{}                                                       & \multicolumn{1}{l}{}      & \multicolumn{1}{l}{}                                                                            \\
+                                                        & Random Forest                                                       & 0.46                        & \textbf{0.88}                                                               & 0.15                       & 0.0                                                                        & \textbf{0.01}              & \textbf{0.39}                                                                                   \\
+                                                        & \begin{tabular}[c]{@{}l@{}}Extreme Gradient\\ Boosting\end{tabular} & \textbf{0.47}               & 0.72                                                                        & \textbf{0.16}              & 0.0                                                                        & \textbf{0.01}              & 0.36                                                                                            \\
+                                                        & Gradient Boosting                                                   & 0.39                        & 0.84                                                                        & \textbf{0.16}              & 0.0                                                                        & \textbf{0.01}              & 0.36                                                                                            \\ \hline
+
+\end{tabular}}
+\caption{Shape-wise (H1) and overall classification accuracy (Training and test sets are from the different datasets: Only with Shape Features)}
+\label{accuracy only shape different}
+\end{table}
+
+|       When consider the shape-wise (H1) accuracy of new dataset 1, Gradient Boosting algorithm is best. Because feeding the new dataset 1 to the Gradient Boosting algorithms needle, heart, and round shape leaves are correctly classified with higher accuracy. But Extreme Gradient Boosting has the highest overall classification accuracy of 50\%. 
+
+|       When consider the shape-wise (H1) accuracy of new dataset 2, Gradient Boosting and Random Forest algorithms are best. Because feeding the new dataset 2 to Gradient Boosting and Random Forest algorithms diamond, needle, heart, and round shape leaves are correctly classified with higher level of accuracy than other two algorithms. Gradient Boosting has the highest overall classification accuracy as 31\%.
+
+|       When consider the shape-wise (H1) accuracy of new dataset 3, Gradient Boosting algorithm is best. Because feeding the new dataset 3 to Gradient Boosting algorithm diamond, heart, and round shape leaves are correctly classified with higher level of accuracy than other two algorithms. Gradient Boosting also has the highest overall classification accuracy as 38\%.
+
+|       When consider the shape-wise (H1) accuracy of new dataset 4, Random Forest is best. Because feeding the new dataset 4 to the Random Forest algorithm simple round shape leaves correctly classified with higher level of accuracy than other two algorithms. Random Forest has the highest overall classification accuracy as 39\%.
+
+|       Only with shape features, out of sample overall classification accuracy in H1 is higher for Extreme Gradient Boosting than Random Forest and Gradient Boosting in experiment 2.
+
+
+|       With all the features, out of sample overall classification accuracy in H1 is higher for Random Forest than Extreme Gradient Boosting and Gradient Boosting in experiment 1 and 2 when consider all the datasets.
+
+|       Only with shape features, out of sample overall classification accuracy in H1 is higher for Extreme Gradient Boosting than Random Forest and Gradient Boosting in experiment 1 and 2 when consider all the datasets.
+
+
+|       With all features and only with shape features, out of sample overall classification accuracy in H1 of experiment 1 is higher than experiment 2. i:e: the experiment with training and test set from same dataset gives the best results to classify according to the first level of the hierarchy (H1).
+
+
+## Algorithm Performance & Comparison with Benchmarks
+
+|       In this section, we discuss the performance of algorithms under hierarchical and non-hierarchical classification approaches that is followed by actual image dataset. Random Forest, Extreme Gradient Boosting, and Gradient Boosting algorithms are compared in both hierarchical and non-hierarchical approaches. Other than that Linear Discriminant Analysis (LDA), K-Nearest Neighbor (KNN), Support Vector Machine (SVM), Probabilistic Neural Network (PNN), and Artificial Neural Network (ANN) algorithms are compared in non-hierarchical approach. To compare the results overall classification accuracy, macro average accuracy, and weighted average accuracy are considered. By calculating the average of ranks, the best algorithm can be find from all 3 of the accuracy types.  
+
+
+
+\begin{table}[!ht]
+\centering \resizebox{\textwidth}{!}{
+\begin{tabular}{ccccccccc}
+\hline
+\multirow{2}{*}{Case}                                                                           & \multirow{2}{*}{Algorithm}                                           & \multicolumn{2}{c}{Overall classification} & \multicolumn{2}{c}{Macro average}        & \multicolumn{2}{c}{Weighted average} & \multirow{2}{*}{\begin{tabular}[c]{@{}c@{}}Average \\ of ranks\end{tabular}} \\\cline{3-8}
+                                                                                                &                                                                      & Accuracy                 & Rank            & Accuracy      & \multicolumn{1}{l}{Rank} & Accuracy              & Rank         &                                                                              \\ \hline
+\multirow{3}{*}{\begin{tabular}[c]{@{}c@{}}Using \\ hierarchical \\ level\end{tabular}}         & Random Forest                                                        & \textbf{1.00}            & 1               & \textbf{0.99} & 1                        & \textbf{1.00}         & 1            & \textbf{1}                                                                   \\
+                                                                                                & \begin{tabular}[c]{@{}c@{}}Extreme gradient\\ boosting\end{tabular}  & 0.99                     & 2               & 0.99          & 1                        & 0.99                  & 2            & 1.67                                                                         \\
+                                                                                                & Gradient Boosting                                                    & 0.99                     & 2               & 0.99          & 1                        & 0.99                  & 2            & 1.67                                                                         \\
+\multirow{8}{*}{\begin{tabular}[c]{@{}c@{}}Without using \\ hierarchical \\ level\end{tabular}} & Radom forest                                                         & 0.99                     & 2               & 0.99          & 1                        & 0.99                  & 2            & 1.67                                                                         \\
+                                                                                                & \begin{tabular}[c]{@{}c@{}}Extreme gradient \\ boosting\end{tabular} & 0.98                     & 5               & 0.98          & 5                        & 0.98                  & 5            & 5                                                                            \\
+                                                                                                & \begin{tabular}[c]{@{}c@{}}Gradient \\ boosting\end{tabular}         & 0.98                     & 5               & 0.98          & 5                        & 0.98                  & 5            & 5                                                                            \\
+                                                                                                & LDA                                                                  & 0.98                     & 5               & 0.98          & 5                        & 0.98                  & 5            & 5                                                                            \\
+                                                                                                & KNN                                                                  & 0.84                     & 9               & 0.81          & 9                        & 0.84                  & 9            & 9                                                                            \\
+                                                                                                & SVM                                                                  & 0.47                     & 10              & 0.40          & 11                       & 0.42                  & 11           & 10.67                                                                        \\
+                                                                                                & PNN                                                                  & 0.47                     & 10              & 0.44          & 10                       & 0.45                  & 10           & 10                                                                           \\
+                                                                                                & ANN                                                                  & 0.98                     & 5               & 0.98          & 5                        & 0.98                  & 5            & 5                                                                            \\ \hline
+\end{tabular}}
+\caption{Comparison of overall classification accuracy, weighted, and micro average accuracy and their ranks }
+\label{compaTa}
+\end{table}
+
+
+|       As shown in the above Table \ref{compaTa}, hierarchical approach with Random Forest has the highest overall classification accuracy. Furthermore, hierarchical approach with Random Forest obtained rank 1 across all categories.
+
+## Visualization of Algorithm Performance
+
+|       In this section, we use Linear Discriminant Analysis (LDA) as high dimensional visualization approaches to visualize what is happening inside the trained algorithm and provides transparency to our black-box model.
+
+### Training and Test both are in Actual Leaf Image Dataset
+
+\textbf{LDA with Random Forest}
+
+\begin{figure}[!ht]
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp1.png}
+		\caption{\label{1waactp1}Training set}
+		
+\end{subfigure}	
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp17.png}
+		\caption{\label{1waactp17}Training + Test Set}
+		
+\end{subfigure}	
+
+\caption{\label{l1}LDA1 Vs LDA2 of Actual leaf image dataset with actual shape labels}
+	    \end{figure}	    
+	
+|       According to Figure \ref{1waactp1}, needle and heart shaped Leaves are correctly classified. But there is an overlap of diamond, round, and simple round shaped leaves. In the test set, the leaves are also projected to the same space as in the training set according to Figure \ref{1waactp17}. But there is a leaf that is not in the training space. The actual label of this leaf is simple round. 	
+
+
+\begin{figure}[!ht]
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp4.png}
+		\caption{\label{1waactp4}Training set}
+		
+\end{subfigure}
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp20.png}
+		\caption{\label{1waactp20}Training + Test Set}
+		
+\end{subfigure}	
+
+\caption{\label{l2}LDA1 Vs LDA2 of Actual leaf image dataset with predicted shape labels}
+	    \end{figure}
+
+
+|       According to Figure \ref{1waactp4}, needle and heart shaped Leaves are correctly classified. But there is an overlap of diamond, round, and simple round shaped leaves. In the test set, the leaves are also projected to the same space as in the training set according to Figure \ref{1waactp20}. But there is a leaf that is not in the training space. The predicted label of this leaf is simple round.
+
+|       Therefore as in Figure \ref{1waactp17} and \ref{1waactp20}, there is a leaf that is not in the training space. Both actual label and predicted label of this leaf is simple round. 
+
+
+	    
+\begin{figure}[!ht]
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp2.png}
+		\caption{\label{lwaactp2}Training set }
+		
+\end{subfigure}	
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp18.png}
+		\caption{\label{lwaactp18}Training + Test Set }
+		
+\end{subfigure}	
+
+\caption{\label{l3}LDA1 Vs LDA3 of Actual leaf image dataset with actual shape labels}
+	    \end{figure}
+
+
+|       According to Figure \ref{lwaactp2}, needle shaped leaves are correctly classified. But there is an overlap of diamond, round, heart, and simple round shaped leaves. In the test set, the leaves are also projected to the same space as in the training set according to Figure \ref{lwaactp18}. But there are three leaves that are not in the training space. The actual label of these leaves are simple round and diamond. Out of these leaves two are simple round and the other one is diamond shaped.
+	    
+	    
+\begin{figure}[!ht]
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp5.png}
+		\caption{\label{lwaactp5}Training set}
+		
+\end{subfigure}
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp21.png}
+		\caption{\label{lwaactp21}Training + Test Set}
+		
+\end{subfigure}	
+
+\caption{\label{l4}LDA1 Vs LDA3 of Actual leaf image dataset with predicted shape labels}
+	    \end{figure}
+
+
+|       According to Figure \ref{lwaactp5}, needle shaped leaves are correctly classified. But there is an overlap of diamond, round, heart, and simple round shaped leaves. In the test set, the leaves are also projected to the same space as in the training set according to Figure \ref{lwaactp21}. But there are three leaves that are not in the training space. The predicted shape label of these leaves are simple round and needle. Out of these leaves two are simple round and the other one is needle shaped.
+
+|       Therefore as in Figure \ref{lwaactp18} and \ref{lwaactp21}, there are three leaves that are not in the training space. Among three, two of them have the actual label simple round. The predicted label of these two are also simple round. But the remaining leaf has actual label diamond and the predicted label of that leaf is needle.  
+	    
+	    
+\begin{figure}[!ht]
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp3.png}
+		\caption{\label{lwaactp3}Training set }
+		
+\end{subfigure}	
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp19.png}
+		\caption{\label{lwaactp19}Training + Test Set }
+		
+\end{subfigure}	
+
+\caption{\label{l5}LDA2 Vs LDA3 of Actual leaf image dataset with actual shape labels}
+	    \end{figure}
+
+
+|       According to Figure \ref{lwaactp3}, there is an overlap of all shaped leaves. In the test set, the leaves are also projected to the same space as in the training set according to Figure \ref{lwaactp19}. But there are three leaves that are not in the training space. 
+
+
+	    
+\begin{figure}[!ht]
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp6.png}
+		\caption{\label{lwaactp6}Training set}
+		
+\end{subfigure}
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp22.png}
+		\caption{\label{lwaactp22}Training + Test Set}
+		
+\end{subfigure}	
+
+\caption{\label{l6}LDA2 Vs LDA3 of Actual leaf image dataset with predicted shape labels}
+	    \end{figure}
+
+
+|       According to Figure \ref{lwaactp6}, there is an overlap of all shaped leaves. In the test set, the leaves are also projected to the same space as in the training set according to Figure \ref{lwaactp22}.
+
+
+\begin{figure}[!ht]
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp7.png}
+		\caption{\label{lwaactp7}LDA of Actual leaf image dataset with actual shape labels}
+	    \end{figure}
+	    
+|       As shown in Figure \ref{lwaactp7}, needle shaped leaves are correctly classified as shown in Figure A and B. Heart shaped leaves are correctly classified as shown in Figure A. There is overlap of diamond, round, and simple round shaped leaves as shown in Figure A, B, and C.  	    
+	    
+	    
+\begin{figure}[!ht]
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp8.png}
+		\caption{\label{lwaactp8}LDA of Actual leaf image dataset with predicted shape labels}
+	    \end{figure}
+
+|       According to Figure \ref{lwaactp8}, needle shaped leaves are correctly classified as shown in Figure A and B. Heart shaped leaves are correctly classified as shown in Figure A. There is overlap of diamond, round, and simple round shaped leaves as shown in Figure A, B, and C. 
+
+	    
+\begin{figure}[!ht]
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp14.png}
+		\caption{\label{lwaactp14}LDA1 Vs LDA2 of Actual leaf image dataset with actual, predicted shape labels and misclassified observations}
+	    \end{figure}
+	    
+|       According to Figure \ref{lwaactp14}, there are 7 misclassified leaves. They are predicted as diamond, but actually three of them are needle shaped, one is heart shaped and the remaining three are simple round shaped.   
+	    
+	    
+\begin{figure}[!ht]
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp15.png}
+		\caption{\label{lwaactp15}LDA1 Vs LDA3 of Actual leaf image dataset with actual, predicted shape labels and misclassified observations}
+	    \end{figure}
+
+|       According to Figure \ref{lwaactp15}, there are 7 misclassified leaves. They are predicted as diamond, but actually three of them are needle shaped, one is heart shaped and the remaining three are simple round shaped.
+
+
+\begin{figure}[!ht]
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp16.png}
+		\caption{\label{lwaactp16}LDA2 Vs LDA3 of Actual leaf image dataset with actual, predicted shape labels and misclassified observations}
+	    \end{figure}
+
+|       According to Figure \ref{lwaactp16}, there are 7 misclassified leaves. They are predicted as diamond, but actually three of them are needle shaped, one is heart shaped and the remaining three are simple round shaped.
+	    
+\begin{figure}[!ht]
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp9.png}
+		\caption{\label{lwaactp9}LDA1 Vs LDA2 of OOB probabilities by shape label}
+	    \end{figure}
+	    	    
+
+|       The above Figure \ref{lwaactp9} shows a good classification by using the Out of Bag (OOB) probabilities that computed from Random Forest. The Out of Bag (OOB) probability is 1 for each shape label as in the training space shown in Figure F.   
+	    	    
+\begin{figure}[!ht]
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp10.png}
+		\caption{\label{lwaactp10}LDA1 Vs LDA2 of shape features}
+	    \end{figure}
+	    
+|       According to Figure \ref{lwaactp10}, eccentricity values of needle shaped leaves are higher than all other shaped leaves. Therefore eccentricity can be used to classify needle shaped leaves. Area ratio convexity and perimeter convexity values are high for all shaped labels. Circularity, area, equivalent diameter, and physiological length values of needle shaped leaves are very low when compared with other shaped leaves. But compactness, narrow factor, and perimeter ratio length values of needle shaped leaves are higher than other shaped leaves. Therefore circularity, equivalent diameter, physiological length, compactness, narrow factor, and perimeter ratio length values are used to classify needle shaped leaves. Number of convex points of heart shaped leaves are higher than other shaped leaves. Therefore number of convex points can be used to classify heart shaped leaves. Area convexity, compactness, correlation, perimeter, perimeter ratio diameter and perimeter ratio length and width values of round shaped leaves are higher than other shaped leaves. Area ratio convexity, number of convex points, perimeter convexity, and rectangularity values are very low than other shaped leaves. Therefore area convexity, compactness, perimeter, perimeter ratio diameter, perimeter ratio length and width, area ratio convexity, number of convex points, perimeter convexity, and rectangularity values are used to classify round shaped leaves.    	    
+	    
+\begin{figure}[!ht]
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp11.png}
+		\caption{\label{lwaactp11}LDA1 Vs LDA2 of texture features}
+	    \end{figure}
+	    
+|       According to Figure \ref{lwaactp11}, contrast values of heart shaped leaves are higher than other shaped leaves. Correlation texture values of heart, round, and simple round shaped leaves are higher than correlation texture values of needle and diamond shaped leaves. Therefore correlation texture can be used to classified heart, round, and simple round shaped leaves from needle and diamond shaped leaves. Entropy values of heart shaped leaves are higher than other shaped leaves. Therefore entropy can be used to classify heart shape leaves. Inverse difference moments values of simple round shaped leaves are higher than other shaped leaves.   
+	    
+	    
+\begin{figure}[!ht]
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp12.png}
+		\caption{\label{lwaactp12}LDA1 Vs LDA2 of color features}
+	    \end{figure}
+	    
+|       According to Figure \ref{lwaactp12}, mean blue, green, and red values of needle, diamond, round, and simple round shaped leaves are higher than mean blue, green, and red values of heart shaped leaves. Therefore mean blue, green, and red values can be used to classify heart shaped leaves. standard deviation of blue and green values of heart, round, and simple round shaped leaves are higher than standard deviation of blue and green values of needle and diamond shaped leaves. Standard deviation of red value of heart shaped leaves are higher than other shaped leaves. Therefore by using standard deviation of red value heart shaped leaves can be classified. Standard deviation of red value of needle shaped leaves are lower than other shaped leaves. Therefore standard deviation of red value can be used to needle shaped leaves.   	    
+	    
+	    
+\begin{figure}[!ht]
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/Actual/With_Actual/RF/actp13.png}
+		\caption{\label{lwaactp13}LDA1 Vs LDA2 of scagnostic features}
+	    \end{figure}
+
+|       According to Figure \ref{lwaactp13}, monotonic contour, monotonic polar values of round shaped leaves are higher than other shaped leaves. Therefore monotonic contour and monotonic polar can be used to classify round shaped leaves. Striated contour, striated polar, stringy contour, and stringy polar values are high in all shaped leaves. Clumpy contour, clumpy polar, convex contour, outlying polar, sparse contour, sparse polar, and stringy polar values are low in all shaped leaves. Outlying contour has medium values for all shaped leaves.
+
+
+
+### Visualisation of Actual, Flavia and Swedish Leaf Datasets
+
+	
+
+|       Actual, Flavia and Swedish leaf image datasets contain color images. Therefore shape, texture, color, and scagnostic features are extracted. All together there are 52 features without the shape label. According to Figure \ref{r1} Actual, Flavia, and Swedish datasets are projected in three different spaces.  
+
+
+### Visualisation of Actual, Flavia, Swedish, and Kaggle Leaf Datasets
+
+
+|       Kaggle leaf image dataset contains only binary images. Therefore only shape and scagnostic features are extracted. When extracting shape and scagnostic features of all datasets, Kaggle leaf dataset is projected in a different space without overlapping with other three. According to Figure \ref{r2} Actual, Flavia, and Swedish datasets are projected with overlapping. 
+
+
+|   When extracting shape features of all datasets, Kaggle leaf dataset is projected in a different space without overlapping with other three. According to Figure \ref{r3} Actual, Flavia, and Swedish datasets are projected with overlapping.
+
+
+\begin{figure}[!ht]
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/plt1.png}
+		\caption{\label{r1}LDA1 Vs LDA2 of Actual, Flavia and Swedish leaf datasets with all feature categories}
+		
+		\includegraphics[width=100mm, height=70mm]{./Figures/plt2.png}
+		\caption{\label{r3}LDA1 Vs LDA2 of Actual, Flavia, Swedish, and Kaggle Leaf Datasets only with shape features}
+		
+\end{subfigure}	
+\begin{subfigure}{.5\textwidth}
+\centering
+		\includegraphics[width=100mm, height=70mm]{./Figures/plt2.png}
+		\caption{\label{r2}LDA1 Vs LDA2 of Actual, Flavia, Swedish, and Kaggle leaf datasets only with shape features}
+		
+\end{subfigure}	
+
+\caption{}
+	    \end{figure}
+	    
+	    
+# Feature Importance
+
+|       In this section, we discuss about the important features in each levels of the hierarchy.
+
+|       As shown in Figure \ref{varImportact} by exploring the variable importance measures of Random Forest, Gradient boosting, and Extreme gradient boosting algorithms on Actual leaf image dataset, we identified the most important features contributing to the shape-wise classification of the machine learning algorithms.
+
+```{r, warning=FALSE, message=FALSE, comment=NA, echo=FALSE, fig.height=7, fig.width=7, fig.cap="\\label{varImportact}Importance of features in Actual Image dataset"}
+dd_actual <- read.csv("data/feature_d_actual_rf.csv", header = TRUE)
+p1 <- ggplot(data = dd_actual, aes(x = reorder(Features, Feature_impotance_score), y = Feature_impotance_score)) + geom_bar(stat = "identity") + coord_flip() + xlab('Features') + ylab('Feature impotance score') + theme(text = element_text(size = 5)) + ggtitle("Random forest")
+
+dd_actual1 <- read.csv("data/feature_d_actual_xgboost.csv", header = TRUE)
+p2 <- ggplot(data = dd_actual1, aes(x = reorder(Features, Feature_impotance_score), y = Feature_impotance_score)) + geom_bar(stat = "identity") + coord_flip() + xlab('Features') + ylab('Feature impotance score') + theme(text = element_text(size = 5)) + ggtitle("Extreme gradient boosting")
+
+
+dd_actual2 <- read.csv("data/feature_d_actual_gbm.csv", header = TRUE)
+p3 <- ggplot(data = dd_actual2, aes(x = reorder(Features, Feature_impotance_score), y = Feature_impotance_score)) + geom_bar(stat = "identity") + coord_flip() + xlab('Features') + ylab('Feature impotance score') + theme(text = element_text(size = 5)) + ggtitle("Gradient boosting")
+
+p1 / (p2 + p3) + plot_annotation(tag_levels = 'A') + plot_layout(guides = 'collect') & theme(plot.tag = element_text(size = 2))  & theme(legend.position = 'bottom', legend.title=element_blank())
+```
+
+
+|       As shown in Figure \ref{varImportactnh} by exploring the variable importance measures of Random Forest on heart and needle shaped leaves in Actual leaf image dataset, we identified the most important features contributing to the species-wise classification of the machine learning algorithms.
+
+```{r, warning=FALSE, message=FALSE, comment=NA, echo=FALSE, fig.height=5, fig.width=5, fig.cap="\\label{varImportactnh}Importance of features in needle and heart shaped leaves of Actual Image dataset"}
+dd_actual_h <- read.csv("data/feature_heart_actual_rf.csv", header = TRUE)
+p1_h <- ggplot(data = dd_actual_h, aes(x = reorder(Features, Feature_impotance_score), y = Feature_impotance_score)) + geom_bar(stat = "identity") + coord_flip() + xlab('Features') + ylab('Feature impotance score') + theme(text = element_text(size = 7)) + ggtitle("Heart shaped leaves")
+
+dd_actual_n <- read.csv("data/feature_needle_actual_rf.csv", header = TRUE)
+p2_n <- ggplot(data = dd_actual_n, aes(x = reorder(Features, Feature_impotance_score), y = Feature_impotance_score)) + geom_bar(stat = "identity") + coord_flip() + xlab('Features') + ylab('Feature impotance score') + theme(text = element_text(size = 7)) + ggtitle("Needle shaped leaves")
+p1_h + p2_n + plot_annotation(
+  tag_levels = 'A'
+) + plot_layout(guides = 'collect') & theme(plot.tag = element_text(size = 2))  & theme(legend.position = 'bottom', legend.title=element_blank())
+```
+
+|       As shown in Figure \ref{varImportactds} by exploring the variable importance measures of Random Forest on diamond and simple round shaped leaves in Actual leaf image dataset, we identified the most important features contributing to the edge-wise classification of the machine learning algorithms.
+
+```{r, warning=FALSE, message=FALSE, comment=NA, echo=FALSE, fig.height=6, fig.width=6, fig.cap="\\label{varImportactds}Importance of features in edge-wise classification of diamond and simple round shaped leaves of Actual Image dataset"}
+dd_actual_d1 <- read.csv("data/feature_diamond_edge_actual_rf.csv", header = TRUE)
+p1_de <- ggplot(data = dd_actual_d1, aes(x = reorder(Features, Feature_impotance_score), y = Feature_impotance_score)) + geom_bar(stat = "identity") + coord_flip() + xlab('Features') + ylab('Feature impotance score') + theme(text = element_text(size = 7)) + ggtitle("Diamond shaped leaves")
+
+dd_actual_s1 <- read.csv("data/feature_simple_round_edge_actual_rf.csv", header = TRUE)
+p2_se <- ggplot(data = dd_actual_s1, aes(x = reorder(Features, Feature_impotance_score), y = Feature_impotance_score)) + geom_bar(stat = "identity") + coord_flip() + xlab('Features') + ylab('Feature impotance score') + theme(text = element_text(size = 7)) + ggtitle("Simple round shaped leaves")
+
+p1_de + p2_se + plot_annotation(
+  tag_levels = 'A'
+) + plot_layout(guides = 'collect') & theme(plot.tag = element_text(size = 2))  & theme(legend.position = 'bottom', legend.title=element_blank())
+```
+
+
+|       As shown in Figure \ref{varImportactds} by exploring the variable importance measures of Random Forest on diamond shaped smooth edged leaves in Actual leaf image dataset, we identified the most important features contributing to the species-wise classification of the machine learning algorithms.
+
+
+```{r, warning=FALSE, message=FALSE, comment=NA, echo=FALSE, fig.height=4, fig.width=4, fig.cap="\\label{varImportactds}Importance of features in species-wise classification of diamond shaped smooth edged leaves of Actual Image dataset"}
+dd_actual_ds <- read.csv("data/feature_diamond_smooth_actual_rf.csv", header = TRUE)
+p1_des <- ggplot(data = dd_actual_ds, aes(x = reorder(Features, Feature_impotance_score), y = Feature_impotance_score)) + geom_bar(stat = "identity") + coord_flip() + xlab('Features') + ylab('Feature impotance score') + theme(text = element_text(size = 5)) + ggtitle("Smooth edged diamond shaped leaves")
+p1_des
+```
+
+|       As shown in Figure \ref{varImportactds} by exploring the variable importance measures of Random Forest on simple round shaped leaves in Actual leaf image dataset, we identified the most important features contributing to the species-wise classification of the machine learning algorithms.
+
+
+```{r, warning=FALSE, message=FALSE, comment=NA, echo=FALSE, fig.height=6, fig.width=6, fig.cap="\\label{varImportactsr}Importance of features in species-wise classification of simple round shaped leaves of Actual Image dataset"}
+dd_actual_sc <- read.csv("data/feature_simple_round_crenate_actual_rf.csv", header = TRUE)
+p1_sc <- ggplot(data = dd_actual_sc, aes(x = reorder(Features, Feature_impotance_score), y = Feature_impotance_score)) + geom_bar(stat = "identity") + coord_flip() + xlab('Features') + ylab('Feature impotance score') + theme(text = element_text(size = 5)) + ggtitle("Crenate edged simple round shaped leaves")
+
+dd_actual_sl <- read.csv("data/feature_simple_round_lobed_actual_rf.csv", header = TRUE)
+p2_sl <- ggplot(data = dd_actual_sl, aes(x = reorder(Features, Feature_impotance_score), y = Feature_impotance_score)) + geom_bar(stat = "identity") + coord_flip() + xlab('Features') + ylab('Feature impotance score') + theme(text = element_text(size = 5)) + ggtitle("Lobed edged simple round shaped leaves")
+
+dd_actual_ss <- read.csv("data/feature_simple_round_smooth_actual_rf.csv", header = TRUE)
+p2_ss <- ggplot(data = dd_actual_ss, aes(x = reorder(Features, Feature_impotance_score), y = Feature_impotance_score)) + geom_bar(stat = "identity") + coord_flip() + xlab('Features') + ylab('Feature impotance score') + theme(text = element_text(size = 5)) + ggtitle("Smooth edged simple round shaped leaves")
+
+
+p1_sc / (p2_sl + p2_ss) + plot_annotation(
+  tag_levels = 'A'
+) + plot_layout(guides = 'collect') & theme(plot.tag = element_text(size = 2))  & theme(legend.position = 'bottom', legend.title=element_blank())
+```
+
+
+# Discussion and Conclusions
+
+|       Automatic medicinal plant species identification using leaf images is a popular research field with several critical applications. Through this research, we introduce an automatic algorithm to classify medicinal plants using medicinal plant leaves. Leaf images are considered as they contain large number of diverse set of features such as shape, veins, edge features, apices, etc that are useful in identifying medicinal plants.
+
+|       In order to identify medicinal plant species using leaf images, we first do a preliminary study to get an idea about the morphological characteristics like shape, edge type, apex, base, arrangement etc. We identify five main shapes as: (i) Diamond, (ii) Simple round, (iii) Heart shaped, (iv) Needle, and (v) Round and four main edge types as: (i) Smooth, (ii) Toothed, (iii) Lobed, and (iv) Crenate by observing images in medicinal plant repository maintained by Barberyn Ayurveda resort and University of Ruhuna available at \url{http://www.instituteofayurveda.org/plants/}. Our observed results are converted into a open source R software package called MedLEA: \textbf{Med}icinal \textbf{LEA}f (https://CRAN.R-project.org/package=MedLEA). Furthermore, most of the researches are based on the existing databases like Flavia, Swedish etc. These existing databases contain few plant species and it is not sufficient to train a reliable model properly. In addition to that, a database of leaf images of medicinal plants in Sri Lanka is not yet available. Hence through this research, we establishe a repository of medicinal plant images which is available at MedLEA. We collect the leaf images by following simplest and reliable approach which can be followed without expertise knowledge. The images were taken on a white background, positioning center of the white paper and the images are obtained from a normal smartphone without flash light to remove the shadow.         
+
+
+|       Furthermore, we introduce our medicinal plant classification algorithm as MEDIPI : \textbf{MEDI}icinal \textbf{P}lant \textbf{I}dentification. The MEDIPI is divided into offline phase and online phase. The classification algorithm is trained in the offline phase. In the online phase, the pre-trained classification model is used to real-time leaf image classification for general users. Our classification algorithm operates on the features extracted from the image leaves. Through this research, we introduce 52 computer aided, interpretable features for leaf image recognition. There are four main categories of features that are used to classify leaf images. Many researches are based on shape, texture, and color features. In this research, we introduce new feature category called scagnostics for leaf image classification. Other than that correlation of cartesian coordinate, number of convex points, number of minimum and maximum points are introduced as new shape features. We explore the ability of features to discriminate the classes of interest under supervised learning and unsupervised learning settings using principal component analysis and linear discriminant analysis. Under both experimental settings clear separation of classes are visible in their projection spaces. 
+
+
+|       In addition to that, the offline phase of the algorithm contains four main steps: (i) Image processing, (ii) Feature extraction, (iii) Label images, and (iv) Trained a algorithm. The purpose of image processing is to improve the leaf image by removing undesired distortion. The main image processing steps are (i) Convert original image to RGB image, (ii) Gray scaling, (iii) Gaussian smoothing, (iv) Binary thresholding, (v) Remove stalk, (vi) Closing holes, and (vii) Resize image. 
+
+|       Furthermore, we train our algorithm using random forest, gradient boosting, and extreme gradient boosting. The model trained with random forest algorithm provides the highest accuracy. Our algorithm works as a hierarchical classification system. The hierarchy contains 3 levels. The first level classifies images according to the shape. The second level classifies according to the edge types. The bottom level classifies the plant species. We observe that shape features like (i) x value of Center (cx), (ii) y value of Center (cy), (iii) Entropy, (iv) Perimeter ratio of length and width, (v) Diameter, (vi) Area convexity, (vii) Perimeter convexity, (viii) Narrow Factor, (ix) Area ratio convexity, (x) Physiological length, (xi) Physiological width, (xii) Rectangularity, and (xiii) Eccentricity are more important when classify the leaf images in the first level of the hierarchy. Scagnostic features like (i) Monotonic contour, (ii) Convex polar, (iii) Convex contour, (iv) Striated polar, (v) Striated contour, (vii) Skinny contour, and (vii) Skinny contour are more important in identifying leaf species in the bottom level of the hierarchy.   
+
+|       In addition to that, we use high dimensional visualization approaches as Linear Discriminant Analysis (LDA) to visualize what is happening inside the trained algorithm and provides transparency to our black-box model. We compare the accuracy of our proposed algorithm against several benchmarks and other commonly used algorithms for medicinal plants classification. The MEDIPI algorithm yields accurate results to the state-of-the existing techniques in the field. We have to use training/test from same dataset to get accurate results. Most of the literatures are based on shape feature. By train the algorithms (i) Only with shape features, and (ii) With all feature categories (Shape, color, texture, scagnostic), we observe that shape feature is not sufficient to classify leaf images. 
+
+# Reference
+
+
